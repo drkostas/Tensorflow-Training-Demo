@@ -19,8 +19,7 @@ https://github.com/drkostas/COSC525-Project3/blob/master/LICENSE)
 
 ## About <a name = "about"></a>
 
-Project 3 for the Deep Learning course (COSC 525). Involves the development of a 
-Convolutional Neural Network.
+Project 3 for the Deep Learning course (COSC 525). Training various networks with Tensorflow.
 
 The main code is located in the [main.py](main.py) file. The Neuron, FullyConnectedLayer, 
 and NeuralNetwork classes are located in the [src folder](src).
