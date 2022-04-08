@@ -1,4 +1,4 @@
-# COSC525: Project 3: Convolutional Neural Networks
+# COSC525: Project 3: Train with Tensorflow
 
 [![GitHub license](https://img.shields.io/badge/license-Apache-blue.svg)](
 https://github.com/drkostas/COSC525-Project3/blob/master/LICENSE)
