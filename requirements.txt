@@ -4,3 +4,4 @@ tensorflow
 tensorboard
 pandas
 Pillow
+sklearn
