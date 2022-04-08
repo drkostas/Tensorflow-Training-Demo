@@ -1,7 +1,6 @@
 import traceback
 import argparse
 import numpy as np
-from src import NeuralNetwork, generateExample, getTensorExample
 from typing import *
 
 
@@ -17,33 +16,25 @@ def get_args() -> argparse.Namespace:
         add_help=False)
     # Required Args
     required_args = parser.add_argument_group('Required Arguments')
-    required_args.add_argument('-d', '--dataset', required=True,
-                               help="The datasets to train the network on. "
-                                    "Options: [example1, example2, example3]")
     # Optional args
     optional_args = parser.add_argument_group('Optional Arguments')
+    optional_args.add_argument('-d', '--dataset',
+                               help="The datasets to train the network on.", default='fairface')
     optional_args.add_argument("-h", "--help", action="help", help="Show this help message and exit")
 
     return parser.parse_args()
 
 
 def main():
-    """This is the main function of main.py
+    """This is the main function of evaluate.py
 
     Example:
-        python main.py --dataset example1
+        python evaluate.py --dataset example1
     """
 
     # Initializing
     args = get_args()
     # Load the configurations
-    dataset_type = args.dataset
-    if dataset_type in ('example1', 'example2', 'example3'):
-        example_num = int(dataset_type[-1])
-        inputs, targets, layers = generateExample(example_num)
-        getTensorExample(example_num)
-    else:
-        raise ValueError('Invalid dataset type')
 
     # ------- Start of Code ------- #
 

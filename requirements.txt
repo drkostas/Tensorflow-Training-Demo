@@ -2,3 +2,5 @@ matplotlib
 numpy
 tensorflow
 tensorboard
+pandas
+Pillow

@@ -1,8 +1,8 @@
 import traceback
 import argparse
 import numpy as np
-from src import NeuralNetwork, generateExample, getTensorExample
 from typing import *
+from src import load_dataset
 
 
 def get_args() -> argparse.Namespace:
@@ -17,33 +17,31 @@ def get_args() -> argparse.Namespace:
         add_help=False)
     # Required Args
     required_args = parser.add_argument_group('Required Arguments')
-    required_args.add_argument('-d', '--dataset', required=True,
-                               help="The datasets to train the network on. "
-                                    "Options: [example1, example2, example3]")
     # Optional args
     optional_args = parser.add_argument_group('Optional Arguments')
+    optional_args.add_argument("--n-rows", default=-1, type=int, required=False,
+                               help="How many rows of the dataset to read.")
     optional_args.add_argument("-h", "--help", action="help", help="Show this help message and exit")
 
     return parser.parse_args()
 
 
 def main():
-    """This is the main function of main.py
+    """This is the main function of train.py
 
     Example:
-        python main.py --dataset example1
+        python train.py --dataset example1
     """
 
     # Initializing
     args = get_args()
-    # Load the configurations
-    dataset_type = args.dataset
-    if dataset_type in ('example1', 'example2', 'example3'):
-        example_num = int(dataset_type[-1])
-        inputs, targets, layers = generateExample(example_num)
-        getTensorExample(example_num)
-    else:
-        raise ValueError('Invalid dataset type')
+    # Load the dataset
+    images, labels = load_dataset(dataset='train', n_rows=args.n_rows)
+    first_img = next(images)
+    print(first_img.format)
+    print(first_img.mode)
+    print(first_img.size)
+    print(labels.count())
 
     # ------- Start of Code ------- #
 
