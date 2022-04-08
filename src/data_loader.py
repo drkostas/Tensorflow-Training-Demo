@@ -9,10 +9,9 @@ base_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'fairface')
 
 def load_dataset(dataset: str, n_rows: int = -1, delimiter=',') -> Tuple[np.ndarray, pd.DataFrame]:
     """
-    Load a dataset from a CSV file
+    Load images and labels
     """
     labels_df = load_labels_into_df(dataset, n_rows, delimiter)
-    print(n_rows)
     files_list = labels_df['file'].tolist()
     return load_images(files_list), labels_df
 

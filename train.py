@@ -8,7 +8,7 @@ from tensorflow.keras import optimizers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Activation, Conv2D, MaxPooling2D
 
-from src import load_dataset
+from src import load_dataset, split_data
 
 
 def get_args() -> argparse.Namespace:
@@ -62,7 +62,12 @@ def main():
     print("All tasks: ", all_labels.columns)
     labels = all_labels[args.task].values
     print(labels.shape)
-    print(images.shape)
+    # print(images.shape)
+    images_train, images_test, images_val, \
+        labels_train, images_test, images_val = split_data(images, labels, test_perc=0.1, val_perc=0.1)
+    print(labels_train.shape)
+    print(images_test.shape)
+    print(images_val.shape)
 
     # ------- Start of Code ------- #
 
