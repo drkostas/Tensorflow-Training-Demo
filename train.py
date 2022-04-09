@@ -1,11 +1,13 @@
 import traceback
 import argparse
 import numpy as np
+import tensorboard
+import datetime
 import tensorflow as tf
 from tensorflow.keras import Model, optimizers, losses, metrics
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Activation, Conv2D, MaxPooling2D
-
+from tensorflow.keras.callbacks import TensorBoard
 from src import *
 
 
@@ -47,7 +49,7 @@ def build_model_Dense(input_shape: Tuple[int, int], n_classes: int, lr: float = 
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt)
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt,metrics = ['accuracy'])
     return model
 
 def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
@@ -63,7 +65,8 @@ def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: fl
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt)
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt,metrics = ['accuracy'])
+
 
     return model
 
@@ -140,20 +143,44 @@ def main():
     if(args.task ==1):
         # Flatten the images
         images_train = np.array([image.flatten() for image in images_train])
-    print(list(images_train.shape).append(1))
     # Build the model
     model = build_model(input_shape=images_train.shape[1:],
                         n_classes=encoded_train_labels.shape[1],
                         lr=lr)
     print(model.summary())
+
+    log_folder = "logs/fit/t-"+str(args.task)+"b-" + str(batch_size)+"/lr-"+str(lr)
+
+    callbacks = [TensorBoard(log_dir=log_folder,
+                             histogram_freq=1,
+                             write_graph=True,
+                             write_images=False,
+                             update_freq='epoch',
+                             profile_batch=2,
+                             embeddings_freq=1)]
+
+
     # Train the model
-    model.fit(images_train, encoded_train_labels, epochs=epochs, batch_size=batch_size)
+    model.fit(images_train,
+              encoded_train_labels,
+              epochs=epochs,
+              batch_size=batch_size,
+              validation_split= validation_set_perc,
+              callbacks=callbacks)
+
+    # Run "tensorboard --logdir logs/fit" in terminal and open http://localhost:6006/
+
     # --- Evaluation --- #
     # Flatten the images
     if(args.task ==1):
         images_test = np.array([image.flatten() for image in images_test])
     # Evaluate the model
-    model.evaluate(images_test, encoded_test_labels)
+
+
+
+    #model.evaluate(images_test, encoded_test_labels)
+
+
     # Save the model
     # If we want to save every few epochs:
     # https://stackoverflow.com/a/59069122/7043716
