@@ -42,17 +42,17 @@ def load_images(files_list: List[str]) -> np.ndarray:
     return images_np
 
 
-def save_pickle(data, file_name: str, task_name: str, model_name: str,
+def save_pickle(data, file_name: str, attr: str, task: str,
                 protocol=pickle.HIGHEST_PROTOCOL):
-    file_path = os.path.join(model_path, f'{task_name}_task', f'model_{model_name}')
+    file_path = os.path.join(model_path, f'{attr}_attr', f'task_{task}')
     os.makedirs(file_path, exist_ok=True)
     file_path = os.path.join(file_path, file_name)
     with open(file_path, 'wb') as f:
         pickle.dump(data, f, protocol=protocol)
 
 
-def load_pickle(file_name: str, task_name: str, model_name: str):
-    file_path = os.path.join(model_path, f'{task_name}_task', f'model_{model_name}', file_name)
+def load_pickle(file_name: str, attr: str, task: str):
+    file_path = os.path.join(model_path, f'{attr}_attr', f'task_{task}', file_name)
     with open(file_path, 'rb') as f:
         data = pickle.load(f)
     return data

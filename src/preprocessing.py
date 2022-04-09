@@ -1,28 +1,44 @@
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
+from typing import *
 
 
-def split_data(images, labels, test_perc, val_perc):
+def split_data(images, labels, val_perc):
     """
     Function to split the data into training and testing data
     """
-    train_perc = 1.0-test_perc-val_perc
-    images_train, images_test, \
-        labels_train, labels_test = train_test_split(images, labels,
-                                                     test_size=1-train_perc)
-    images_val, images_test, \
-        labels_val, labels_test = train_test_split(images_test, labels_test,
-                                                   test_size=test_perc/(test_perc + val_perc))
-    return images_train, images_test, images_val, labels_train, labels_test, labels_val
+    images_train, images_val, \
+        labels_train, labels_val = train_test_split(images, labels, test_size=val_perc)
+    return images_train, images_val, labels_train, labels_val
 
 
-def min_max_scale(train_data):
+def min_max_scale(data: np.ndarray, max_v: float = None, min_v: float = None) -> Dict:
     """
     Function to scale the data to a range of 0 to 1
     """
-    min_max_scaler = MinMaxScaler()
-    min_max_scaler.fit(train_data)
-    scaled_data = min_max_scaler.transform(train_data)
-    return scaled_data
+    return_dict = {}
+    if max_v is None or min_v is None:
+        max_v = np.max(data)
+        min_v = np.min(data)
+        return_dict['max'] = max_v
+        return_dict['min'] = min_v
+    return_dict['data'] = (data-min_v)/(max_v-min_v)
+    return return_dict
 
-# One hot encoding function
+
+def one_hot_encoder(labels):
+    """ Encodes the labels into the one-hot format"""
+    unique_labels = np.unique(labels)
+    label_index_array = np.zeros(labels.shape).astype(int)
+    label_Encoded = np.zeros((labels.shape[0], unique_labels.shape[0])).astype(int)
+    i =0
+    for label in unique_labels:
+        label_index_array = label_index_array+(labels==label)*i
+        i = i+1
+
+    i = 0
+    for label_index in label_index_array:
+        label_Encoded[i][label_index] = 1
+        i = i + 1
+    return label_Encoded
