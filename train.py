@@ -42,7 +42,7 @@ def build_model(input_shape: Tuple[int, int, int], n_classes: int, lr: float = 0
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss=losses.CategoricalCrossentropy, optimizer=opt)
+    model.compile(loss='categorical_crossentropy', optimizer=opt)
     return model
 
 
@@ -71,11 +71,12 @@ def main():
     # Save the min and max values of the train set for later use
     del min_max_dict['data']  # Don't need this anymore
     save_pickle(data=min_max_dict, file_name='min_max_dict.pkl', task_name=args.task, model_name='1')
-
-    encoded_Labels = one_hot_encoder(labels_train)
-
+    # One hot encode the labels
+    encoded_labels = one_hot_encoder(labels_train)
     # ------- Start of Code ------- #
-    model = build_model([5, images_train.shape[1], images_train.shape[2]], np.unique(encoded_Labels).size)
+    model = build_model(input_shape=images_train.shape[1:],
+                        n_classes=encoded_labels.shape[1],
+                        lr=0.001)
     print(model.summary())
 
 
