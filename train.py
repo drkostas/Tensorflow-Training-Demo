@@ -58,21 +58,6 @@ def build_model(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001)
     return model
 
 
-def one_hot_encoder(labels):
-    """ Encodes the labels into the one-hot format"""
-    unique_labels = np.unique(labels)
-    label_index_array = np.zeros(labels.shape).astype(int)
-    label_Encoded = np.zeros((labels.shape[0], unique_labels.shape[0])).astype(int)
-    i =0
-    for label in unique_labels:
-        label_index_array = label_index_array+(labels==label)*i
-        i = i+1
-
-    i = 0
-    for label_index in label_index_array:
-        label_Encoded[i][label_index] = 1
-        i = i +1
-    return label_Encoded
 
 
 def main():
