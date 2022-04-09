@@ -33,8 +33,20 @@ def get_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+def build_model_Dense(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
+    """ Build a feed-forward Dense neural network"""
+    model = Sequential()
+    # Add the layers
+    model.add(Dense(1024, input_shape=input_shape, activation='tanh'))
+    model.add(Dense(512, activation='sigmoid'))
+    model.add(Dense(100, activation='relu'))
+    model.add(Dense(n_classes, activation='softmax'))
+    # Select the optimizer and the loss function
+    opt = optimizers.SGD(learning_rate=lr)
+    model.compile(loss= tf.keras.losses.CategoricalCrossentropy(), optimizer=opt)
+    return model
 
-def build_model(input_shape: Tuple[int, int, int], n_classes: int, lr: float = 0.001) -> Model:
+def build_model(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
     """ Build a feed-forward convolutional neural network"""
     model = Sequential()
     # Add the layers
@@ -44,7 +56,7 @@ def build_model(input_shape: Tuple[int, int, int], n_classes: int, lr: float = 0
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss='categorical_cross_entropy', optimizer=opt)
+    model.compile(loss= tf.keras.losses.CategoricalCrossentropy(), optimizer=opt)
     return model
 
 def one_hot_encoder(labels):
@@ -80,7 +92,7 @@ def main():
     print(labels.shape)
     # print(images.shape)
     images_train, images_test, images_val, \
-        labels_train, images_test, images_val = split_data(images, labels, test_perc=0.1, val_perc=0.1)
+        labels_train, label_test, labels_val = split_data(images, labels, test_perc=0.1, val_perc=0.1)
     print(labels_train.shape)
     print(images_test.shape)
     print(images_val.shape)
@@ -89,8 +101,25 @@ def main():
 
 
     # ------- Start of Code ------- #
-    model = build_model([5,images_train.shape[1],images_train.shape[2]],np.unique(encoded_Labels).size)
+
+    images_train_flattened = []
+    i = 0
+    for image in images_train:
+        images_train_flattened.append(image.flatten())
+    images_train = np.array(images_train_flattened)
+
+    model = build_model([images_train.shape[1]],np.unique(labels_train).size)
     print(model.summary())
+    model.fit(images_train,encoded_Labels,epochs = 1000,batch_size = 10)
+
+    images_test_flattened = []
+    i = 0
+    for image in images_test:
+        images_test_flattened.append(image.flatten())
+    images_test = np.array(images_test_flattened)
+
+    model.evaluate(images_test,one_hot_encoder(label_test))
+    model.save("models/Task_1_age_10000_1000")
 
 
 if __name__ == '__main__':
