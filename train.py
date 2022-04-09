@@ -54,7 +54,7 @@ def build_model(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001)
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss=losses.CategoricalCrossentropy, optimizer=opt)
+    model.compile(loss='categorical_crossentropy', optimizer=opt)
     return model
 
 
