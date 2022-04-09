@@ -8,7 +8,7 @@ from tensorflow.keras import optimizers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Activation, Conv2D, MaxPooling2D
 
-from src import load_dataset, split_data
+from src import load_dataset, split_data, min_max_scale
 
 
 def get_args() -> argparse.Namespace:
@@ -58,16 +58,19 @@ def main():
     # Initializing
     args = get_args()
     # Load the dataset
-    images, all_labels = load_dataset(dataset='train', n_rows=args.n_rows)
-    print("All tasks: ", all_labels.columns)
-    labels = all_labels[args.task].values
-    print(labels.shape)
+    images_src, all_labels_src = load_dataset(dataset='train', n_rows=args.n_rows)
+    print("All tasks: ", all_labels_src.columns)
+    labels_src = all_labels_src[args.task].values
+    print(labels_src.shape)
     # print(images.shape)
     images_train, images_test, images_val, \
-        labels_train, images_test, images_val = split_data(images, labels, test_perc=0.1, val_perc=0.1)
+        labels_train, images_test, images_val = split_data(images_src, labels_src, val_perc=0.2)
     print(labels_train.shape)
     print(images_test.shape)
     print(images_val.shape)
+    print(images_train.max(), images_train.min())
+    images_train, images_test, images_val = min_max_scale(images_train, images_test, images_val)
+    print(images_train.max(), images_train.min())
 
     # ------- Start of Code ------- #
 
