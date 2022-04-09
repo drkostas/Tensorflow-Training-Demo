@@ -1,14 +1,12 @@
 import traceback
 import argparse
 import numpy as np
-from typing import *
 import tensorflow as tf
-from tensorflow.keras import Model
-from tensorflow.keras import optimizers
+from tensorflow.keras import Model, optimizers, losses, metrics
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Activation, Conv2D, MaxPooling2D
 
-from src import load_dataset, split_data, min_max_scale, save_pickle, load_pickle
+from src import *
 
 
 def get_args() -> argparse.Namespace:
@@ -44,24 +42,8 @@ def build_model(input_shape: Tuple[int, int, int], n_classes: int, lr: float = 0
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss='categorical_cross_entropy', optimizer=opt)
+    model.compile(loss=losses.CategoricalCrossentropy, optimizer=opt)
     return model
-
-def one_hot_encoder(labels):
-    """ Encodes the labels into the one-hot format"""
-    unique_labels = np.unique(labels)
-    label_index_array = np.zeros(labels.shape).astype(int)
-    label_Encoded = np.zeros((labels.shape[0], unique_labels.shape[0])).astype(int)
-    i =0
-    for label in unique_labels:
-        label_index_array = label_index_array+(labels==label)*i
-        i = i+1
-
-    i = 0
-    for label_index in label_index_array:
-        label_Encoded[i][label_index] = 1
-        i = i +1
-    return label_Encoded
 
 
 def main():
@@ -92,9 +74,8 @@ def main():
 
     encoded_Labels = one_hot_encoder(labels_train)
 
-
     # ------- Start of Code ------- #
-    model = build_model([5,images_train.shape[1],images_train.shape[2]],np.unique(encoded_Labels).size)
+    model = build_model([5, images_train.shape[1], images_train.shape[2]], np.unique(encoded_Labels).size)
     print(model.summary())
 
 
