@@ -27,6 +27,9 @@ def get_args() -> argparse.Namespace:
                                choices=['age', 'gender', 'race'], help="The attribute to train on.")
     # Optional args
     optional_args = parser.add_argument_group('Optional Arguments')
+    optional_args.add_argument("--tuning", action='store_true', required=False,
+                               help="Whether to use the validation or training set for training.")
+    optional_args.set_defaults(feature=False)
     optional_args.add_argument("--n-rows", default=-1, type=int, required=False,
                                help="How many rows of the dataset to read.")
     optional_args.add_argument("-h", "--help", action="help", help="Show this help message and exit")
@@ -73,7 +76,7 @@ def main():
     epochs = 10
     batch_size = 32
     lr = 0.001
-    validation_set_perc = 0.2  # Percentage of the train dataset to use for validation
+    validation_set_perc = 0.01  # Percentage of the train dataset to use for validation
 
     # --- Initializing --- #
     args = get_args()
@@ -81,6 +84,10 @@ def main():
         build_model = build_model_Dense
     else:
         raise ValueError("Task not implemented")
+    # Create a validation set suffix if needed
+    val_set_suffix = ''
+    if args.tuning:
+        val_set_suffix = '_valset'
     # Load the dataset
     images_src, all_labels_src = load_dataset(dataset='train', n_rows=args.n_rows)
     images_test, all_labels_test = load_dataset(dataset='val', n_rows=args.n_rows)
@@ -98,11 +105,16 @@ def main():
     images_val = min_max_scale(images_val, min_max_dict['max'], min_max_dict['min'])['data']
     # Save the min and max values of the train set for later use
     del min_max_dict['data']  # Don't need this anymore
-    save_pickle(data=min_max_dict, file_name='min_max_dict.pkl', attr=args.attr, task=args.task)
+    save_pickle(data=min_max_dict, file_name=f'min_max_dict{val_set_suffix}.pkl',
+                attr=args.attr, task=args.task)
     # One hot encode the labels
     encoded_train_labels = one_hot_encoder(labels_train)
     encoded_val_labels = one_hot_encoder(labels_val)
     encoded_test_labels = one_hot_encoder(labels_test)
+    # Select the train or validation set
+    if args.tuning:
+        images_train = images_val
+        encoded_train_labels = encoded_val_labels
 
     # ------- Start of Code ------- #
     # --- Training --- #
@@ -126,7 +138,7 @@ def main():
     model_name = f'model_{epochs}epochs_{batch_size}batchsize_{lr}lr'
     if args.n_rows != -1:
         model_name += f'_{args.n_rows}rows'
-    model_name += '.h5'
+    model_name += f'{val_set_suffix}.h5'
     save_path = os.path.join(model_path, f'{args.attr}_attr', f'task_{args.task}', model_name)
     model.save(save_path)
 
