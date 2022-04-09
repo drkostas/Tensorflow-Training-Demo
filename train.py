@@ -54,8 +54,25 @@ def build_model(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001)
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss='categorical_crossentropy', optimizer=opt)
+    model.compile(loss=losses.CategoricalCrossentropy, optimizer=opt)
     return model
+
+
+def one_hot_encoder(labels):
+    """ Encodes the labels into the one-hot format"""
+    unique_labels = np.unique(labels)
+    label_index_array = np.zeros(labels.shape).astype(int)
+    label_Encoded = np.zeros((labels.shape[0], unique_labels.shape[0])).astype(int)
+    i =0
+    for label in unique_labels:
+        label_index_array = label_index_array+(labels==label)*i
+        i = i+1
+
+    i = 0
+    for label_index in label_index_array:
+        label_Encoded[i][label_index] = 1
+        i = i +1
+    return label_Encoded
 
 
 def main():
@@ -84,10 +101,10 @@ def main():
     # Save the min and max values of the train set for later use
     del min_max_dict['data']  # Don't need this anymore
     save_pickle(data=min_max_dict, file_name='min_max_dict.pkl', task_name=args.task, model_name='1')
-    # One hot encode the labels
-    encoded_labels = one_hot_encoder(labels_train)
+
+    encoded_Labels = one_hot_encoder(labels_train)
+
     # ------- Start of Code ------- #
-<<<<<<< HEAD
 
     images_train_flattened = []
     i = 0
@@ -96,11 +113,6 @@ def main():
     images_train = np.array(images_train_flattened)
 
     model = build_model([images_train.shape[1]],np.unique(labels_train).size)
-=======
-    model = build_model(input_shape=images_train.shape[1:],
-                        n_classes=encoded_labels.shape[1],
-                        lr=0.001)
->>>>>>> f42bcfca67ecc9c98ecb960b26ad70e0ee41e8e4
     print(model.summary())
     model.fit(images_train,encoded_Labels,epochs = 1000,batch_size = 10)
 
