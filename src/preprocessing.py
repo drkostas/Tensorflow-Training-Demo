@@ -26,7 +26,6 @@ def min_max_scale(data: np.ndarray, max_v: float = None, min_v: float = None) ->
     return_dict['data'] = (data-min_v)/(max_v-min_v)
     return return_dict
 
-
 def one_hot_encoder(labels):
     """ Encodes the labels into the one-hot format"""
     unique_labels = np.unique(labels)
