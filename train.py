@@ -50,6 +50,23 @@ def build_model_Dense(input_shape: Tuple[int, int], n_classes: int, lr: float = 
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt)
     return model
 
+def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
+    """ Build a feed-forward conv neural network"""
+    model = Sequential()
+    input_shape = list(input_shape)
+    input_shape.append(1)
+    # Add the layers
+    model.add(Conv2D(filters= 40, kernel_size = 5 , activation='relu', input_shape = input_shape))
+    model.add(MaxPooling2D(pool_size = (2,2)))
+    model.add(Flatten())
+    model.add(Dense(100, activation='relu'))
+    model.add(Dense(n_classes, activation='softmax'))
+    # Select the optimizer and the loss function
+    opt = optimizers.SGD(learning_rate=lr)
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt)
+
+    return model
+
 
 # def build_model(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
 #     """ Build a feed-forward convolutional neural network"""
@@ -82,6 +99,8 @@ def main():
     args = get_args()
     if args.task == 1:
         build_model = build_model_Dense
+    elif args.task==2:
+        build_model = build_model_task_2_conv
     else:
         raise ValueError("Task not implemented")
     # Create a validation set suffix if needed
@@ -118,8 +137,10 @@ def main():
 
     # ------- Start of Code ------- #
     # --- Training --- #
-    # Flatten the images
-    images_train = np.array([image.flatten() for image in images_train])
+    if(args.task ==1):
+        # Flatten the images
+        images_train = np.array([image.flatten() for image in images_train])
+    print(list(images_train.shape).append(1))
     # Build the model
     model = build_model(input_shape=images_train.shape[1:],
                         n_classes=encoded_train_labels.shape[1],
@@ -129,7 +150,8 @@ def main():
     model.fit(images_train, encoded_train_labels, epochs=epochs, batch_size=batch_size)
     # --- Evaluation --- #
     # Flatten the images
-    images_test = np.array([image.flatten() for image in images_test])
+    if(args.task ==1):
+        images_test = np.array([image.flatten() for image in images_test])
     # Evaluate the model
     model.evaluate(images_test, encoded_test_labels)
     # Save the model
