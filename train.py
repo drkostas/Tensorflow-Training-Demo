@@ -90,7 +90,12 @@ def main():
     del min_max_dict['data']  # Don't need this anymore
     save_pickle(data=min_max_dict, file_name='min_max_dict.pkl', task_name=args.task, model_name='1')
 
+    encoded_Labels = one_hot_encoder(labels_train)
+
+
     # ------- Start of Code ------- #
+    model = build_model([5,images_train.shape[1],images_train.shape[2]],np.unique(encoded_Labels).size)
+    print(model.summary())
 
 
 if __name__ == '__main__':
