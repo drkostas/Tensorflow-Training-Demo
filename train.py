@@ -1,14 +1,13 @@
 import traceback
 import argparse
-import numpy as np
-import tensorboard
-import datetime
+from functools import partial
 import tensorflow as tf
 from tensorflow.keras import Model, optimizers, losses, metrics
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Flatten, Activation, \
     Conv2D, MaxPooling2D, Lambda, Input
 from tensorflow.keras.callbacks import TensorBoard
+import keras_tuner as kt
 from src import *
 
 
@@ -50,26 +49,53 @@ def build_model_Dense(input_shape: Tuple[int, int], n_classes: int, lr: float = 
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt,metrics = ['accuracy'])
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=['accuracy'])
     return model
+
 
 def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
     """ Build a feed-forward conv neural network"""
     model = Sequential()
-    input_shape = list(input_shape)
-    input_shape.append(1)
+    # input_shape = list(input_shape)
+    # input_shape.append(1)
     # Add the layers
-    model.add(Conv2D(filters= 40, kernel_size = 5 , activation='relu', input_shape = input_shape))
-    model.add(MaxPooling2D(pool_size = (2,2)))
+    model.add(Conv2D(filters=40, kernel_size=15, activation='relu', input_shape=input_shape))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Flatten())
     model.add(Dense(100, activation='relu'))
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt,metrics = ['accuracy'])
-
-
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=['accuracy'])
     return model
+
+def tune_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
+                           lr: float = 0.001, max_conv_layers: float = 3) -> Model:
+    """ Build a feed-forward conv neural network"""
+    # Tuning Params
+    hp_cnn_activation = [hp.Choice(f'cnn_activation_{i}', values=['relu'], default='relu')
+                         for i in range(max_conv_layers)]  # ['relu', 'tanh', 'sigmoid']
+    hp_dense_activation = hp.Choice('dense_activation', values=['relu'], default='relu')  # ['relu', 'tanh', 'sigmoid']
+    hp_filters = [hp.Choice(f'num_filters_{i}', values=[32, 64], default=32)
+                  for i in range(max_conv_layers)]  # [32, 64, 128]
+    hp_dense_units = hp.Int('dense_units', min_value=100, max_value=100, step=25)
+    hp_lr = hp.Float('learning_rate', min_value=1e-3, max_value=1e-3, sampling='LOG', default=1e-3)  # min_value=1e-5, max_value=1e-2, sampling='LOG', default=1e-3)
+    model = Sequential()
+    # Add the layers
+    for i in range(1, hp.Int("num_layers", 2, max_conv_layers+1)):
+        print("Layer: ", i)
+        model.add(Conv2D(filters=hp_filters[i-1], kernel_size=3,
+                         activation=hp_cnn_activation[i-1], input_shape=input_shape))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Flatten())
+    model.add(Dense(hp_dense_units, activation=hp_dense_activation))
+    model.add(Dense(n_classes, activation='softmax'))
+    # Select the optimizer and the loss function
+    # TODO: Use adam optimizer
+    opt = optimizers.SGD(learning_rate=hp_lr)
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=['accuracy'])
+    return model
+
 
 def build_model_task_5_auto(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
     """ Build a feed-forward conv neural network"""
@@ -88,39 +114,33 @@ def build_model_task_5_auto(input_shape: Tuple[int, int], n_classes: int, lr: fl
 
 
     return model
-# def build_model(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
-#     """ Build a feed-forward convolutional neural network"""
-#     model = Sequential()
-#     # Add the layers
-#     model.add(Dense(1024, input_shape=input_shape, activation='tanh'))
-#     model.add(Dense(512, activation='sigmoid'))
-#     model.add(Dense(100, activation='relu'))
-#     model.add(Dense(n_classes, activation='softmax'))
-#     # Select the optimizer and the loss function
-#     opt = optimizers.SGD(learning_rate=lr)
-#     model.compile(loss=losses.CategoricalCrossentropy(), optimizer=opt)
-#     return model
 
 
 def main():
     """This is the main function of train.py
-
-    Example:
-        python train.py --dataset example1
     """
 
     # --- Hyper parameters --- #
     epochs = 10
     batch_size = 64
+    tuning_image_num = 1000
+    tuningEpochs = 20
+
+
+
     lr = 0.001
     validation_set_perc = 0.01  # Percentage of the train dataset to use for validation
+    max_conv_layers = 3  # Only for tuning
 
     # --- Initializing --- #
     args = get_args()
+    callbacks = []
     if args.task == 1:
         build_model = build_model_Dense
     elif args.task == 2:
         build_model = build_model_task_2_conv
+    elif args.task == 3:
+        build_model = tune_model_task_3_conv
     elif args.task == 5:
         build_model = build_model_task_5_auto
     else:
@@ -133,17 +153,12 @@ def main():
     images_train, all_labels_src = load_dataset(dataset='train', n_rows=args.n_rows)
     images_test, all_labels_test = load_dataset(dataset='val', n_rows=args.n_rows)
     # Extract the labels for the desired task
-    print("All tasks: ", list(all_labels_src.columns)[1:-1])
     labels_train = all_labels_src[args.attr].values
     labels_test = all_labels_test[args.attr].values
-    # Split the train set into train and validation
-    # images_train, images_val, \
-    #     labels_train, labels_val = split_data(images_src, labels_src, val_perc=validation_set_perc)
     # Scale the data
     min_max_dict = min_max_scale(images_train)
     images_train, train_min, train_max = \
         min_max_dict['data'], min_max_dict['min'], min_max_dict['max']
-    #images_val = min_max_scale(images_val, min_max_dict['max'], min_max_dict['min'])['data']
     # Save the min and max values of the train set for later use
     del min_max_dict['data']  # Don't need this anymore
     save_pickle(data=min_max_dict, file_name=f'min_max_dict{val_set_suffix}.pkl',
@@ -151,62 +166,98 @@ def main():
     # One hot encode the labels
     encoded_train_labels = one_hot_encoder(labels_train)
     encoded_test_labels = one_hot_encoder(labels_test)
-    # Select the train or validation set
-    #if args.tuning:
-    #    images_train = images_val
-    #    encoded_train_labels = encoded_val_labels
 
     # ------- Start of Code ------- #
+
     # --- Training --- #
-    if(args.task ==1):
+    if args.task == 1:
         # Flatten the images
         images_train = np.array([image.flatten() for image in images_train])
+    elif args.task in (2, 3, 4, 5):
+        images_train = images_train.reshape(*images_train.shape, 1)
     # Build the model
-    model = build_model(input_shape=images_train.shape[1:],
-                        n_classes=encoded_train_labels.shape[1],
-                        lr=lr)
-    print(model.summary())
 
-    log_folder = "logs/fit/t-"+str(args.task)+\
-                 "/a-"+args.attr+\
-                 "/b-" + str(batch_size)+\
-                 "/lr-"+str(lr)+ "/"+\
-                 datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    # Training Model
+    if args.tuning:
+        tune_images_train = images_train[:tuning_image_num]
+        tune_train_labels = encoded_train_labels[:tuning_image_num]
+        build_model = partial(build_model, input_shape=tune_images_train.shape[1:],
+                              n_classes=tune_train_labels.shape[1],
+                              lr=lr, max_conv_layers=max_conv_layers)
+        model = kt.Hyperband(build_model,
+                             objective='val_accuracy',
+                             factor=3,
+                             directory=os.path.join(model_path,
+                                                    f'{args.attr}_attr',
+                                                    f'task_{args.task}'),
+                             project_name=f'tuning_{epochs}epochs_{batch_size}batchsize_{lr}lr_max_conv_layers{max_conv_layers}')
+        stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+        callbacks.append(stop_early)
 
-    callbacks = [TensorBoard(log_dir=log_folder,
-                             histogram_freq=1,
-                             write_graph=True,
-                             write_images=False,
-                             update_freq='epoch',
-                             profile_batch=2,
-                             embeddings_freq=1)]
+        model.search(tune_images_train,
+                     tune_train_labels,
+                     epochs=tuningEpochs,
+                     batch_size=batch_size,
+                     validation_split=validation_set_perc,
+                     callbacks=callbacks)
+        # Get the optimal hyperparameters
+        best_hps = model.get_best_hyperparameters(num_trials=1)[0]
+        print("Best Model:")
+        print(model.results_summary())
+        # Now we can straight go and train the best model
+        # h_model = model.hypermodel.build(best_hps)
 
-
-    # Train the model
+        # Train the hyper-tuned model
+        # del call_backs[0]
+        # model.fit(images_train,
+        #           encoded_train_labels,
+        #           epochs=epochs,
+        #           batch_size=batch_size,
+        #           validation_split=validation_set_perc,
+        #           callbacks=callbacks)
+        model = tune_model_task_3_conv(hp = best_hps,
+                                      input_shape=images_train.shape[1:],
+                                      n_classes=encoded_train_labels.shape[1],
+                                      lr=lr)
+    else:
+        model = build_model(input_shape=images_train.shape[1:],
+                            n_classes=encoded_train_labels.shape[1],
+                            lr=lr)
+        print(model.summary())
+    # Fit Model
+    log_folder = "logs/fit/t-" + str(args.task) + \
+                 "/a-" + args.attr + \
+                 "/b-" + str(batch_size) + \
+                 "/lr-" + str(lr)
+    callbacks.append(TensorBoard(log_dir=log_folder,
+                                 histogram_freq=1,
+                                 write_graph=True,
+                                 write_images=False,
+                                 update_freq='epoch',
+                                 profile_batch=2,
+                                 embeddings_freq=1))
     model.fit(images_train,
-              encoded_train_labels,
-              epochs=epochs,
-              batch_size=batch_size,
-              validation_split= validation_set_perc,
-              callbacks=callbacks)
+            encoded_train_labels,
+            epochs=epochs,
+            batch_size=batch_size,
+            validation_split=validation_set_perc,
+            callbacks=callbacks)
 
     # Run "tensorboard --logdir logs/fit" in terminal and open http://localhost:6006/
 
     # --- Evaluation --- #
     # Flatten the images
-    if(args.task ==1):
+    if args.task == 1:
         images_test = np.array([image.flatten() for image in images_test])
+    elif args.task in (2, 3, 5):
+        images_train = images_train.reshape(*images_train.shape, 1)
     # Evaluate the model
-
-
-
-    #model.evaluate(images_test, encoded_test_labels)
-
+    # model.evaluate(images_test, encoded_test_labels)
 
     # Save the model
     # If we want to save every few epochs:
     # https://stackoverflow.com/a/59069122/7043716
-    model_name = f'model_{epochs}epochs_{batch_size}batchsize_{lr}lr'
+    model_name = f'model_{epochs}epochs_{batch_size}batch-size_{lr}lr'
     if args.n_rows != -1:
         model_name += f'_{args.n_rows}rows'
     model_name += f'{val_set_suffix}.h5'
