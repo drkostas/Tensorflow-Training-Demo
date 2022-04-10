@@ -70,20 +70,19 @@ def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: fl
 
 
 def tune_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
-                           lr: float = 0.001, max_conv_layers: float = 3) -> Model:
+                           lr: float = 0.001, max_conv_layers: int = 3) -> Model:
     """ Build a feed-forward conv neural network"""
     # Tuning Params
     hp_cnn_activation = [hp.Choice(f'cnn_activation_{i}', values=['relu'], default='relu')
-                         for i in range(max_conv_layers)]  # ['relu', 'tanh', 'sigmoid']
-    hp_dense_activation = hp.Choice('dense_activation', values=['relu'], default='relu')  # ['relu', 'tanh', 'sigmoid']
-    hp_filters = [hp.Choice(f'num_filters_{i}', values=[32, 64], default=32)
-                  for i in range(max_conv_layers)]  # [32, 64, 128]
-    hp_dense_units = hp.Int('dense_units', min_value=100, max_value=100, step=25)
-    hp_lr = hp.Float('learning_rate', min_value=1e-3, max_value=1e-3, sampling='LOG', default=1e-3)  # min_value=1e-5, max_value=1e-2, sampling='LOG', default=1e-3)
+                         for i in range(max_conv_layers)]  # Only relu for now
+    hp_dense_activation = hp.Choice('dense_activation', values=['relu'], default='relu')  # Only relu
+    hp_filters = [hp.Choice(f'num_filters_{i}', values=[32, 64, 128], default=32)
+                  for i in range(max_conv_layers)]
+    hp_dense_units = hp.Int('dense_units', min_value=100, max_value=200, step=25)
+    hp_lr = hp.Float('learning_rate', min_value=1e-5, max_value=1e-2, sampling='LOG', default=1e-3)
     model = Sequential()
     # Add the layers
     for i in range(1, hp.Int("num_layers", 2, max_conv_layers+1)):
-        print("Layer: ", i)
         model.add(Conv2D(filters=hp_filters[i-1], kernel_size=3,
                          activation=hp_cnn_activation[i-1], input_shape=input_shape))
         model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -91,9 +90,10 @@ def tune_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
     model.add(Dense(hp_dense_units, activation=hp_dense_activation))
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
-    # TODO: Use adam optimizer
-    opt = optimizers.SGD(learning_rate=hp_lr)
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=['accuracy'])
+    opt = optimizers.Adam(learning_rate=hp_lr)
+    # opt = optimizers.SGD(learning_rate=hp_lr)
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(),
+                  optimizer=opt, metrics=['accuracy', 'mse'])
     return model
 
 
@@ -106,7 +106,7 @@ def main():
     batch_size = 32
     lr = 0.001
     validation_set_perc = 0.01  # Percentage of the train dataset to use for validation
-    max_conv_layers = 3  # Only for tuning
+    max_conv_layers = 4  # Only for tuning
 
     # --- Initializing --- #
     args = get_args()
@@ -192,6 +192,7 @@ def main():
         best_hps = model.get_best_hyperparameters(num_trials=1)[0]
         print("Best Model:")
         print(model.results_summary())
+        print(model.search_space_summary())
         # Now we can straight go and train the best model
         # h_model = model.hypermodel.build(best_hps)
 
