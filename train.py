@@ -1,9 +1,6 @@
 import traceback
 import argparse
 from functools import partial
-import numpy as np
-import tensorboard
-import datetime
 import tensorflow as tf
 from tensorflow.keras import Model, optimizers, losses, metrics
 from tensorflow.keras.models import Sequential
@@ -51,7 +48,7 @@ def build_model_Dense(input_shape: Tuple[int, int], n_classes: int, lr: float = 
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
     opt = optimizers.SGD(learning_rate=lr)
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt,metrics = ['accuracy'])
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=['accuracy'])
     return model
 
 
@@ -61,7 +58,7 @@ def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: fl
     # input_shape = list(input_shape)
     # input_shape.append(1)
     # Add the layers
-    model.add(Conv2D(filters=40, kernel_size=5, activation='relu', input_shape=input_shape))
+    model.add(Conv2D(filters=40, kernel_size=15, activation='relu', input_shape=input_shape))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Flatten())
     model.add(Dense(100, activation='relu'))
@@ -72,21 +69,30 @@ def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: fl
     return model
 
 
-def build_model_task_3_conv_1(hp, input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
+def tune_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
+                           lr: float = 0.001, max_conv_layers: float = 3) -> Model:
     """ Build a feed-forward conv neural network"""
+    # Tuning Params
+    hp_cnn_activation = [hp.Choice(f'cnn_activation_{i}', values=['relu'], default='relu')
+                         for i in range(max_conv_layers)]  # ['relu', 'tanh', 'sigmoid']
+    hp_dense_activation = hp.Choice('dense_activation', values=['relu'], default='relu')  # ['relu', 'tanh', 'sigmoid']
+    hp_filters = [hp.Choice(f'num_filters_{i}', values=[32, 64], default=32)
+                  for i in range(max_conv_layers)]  # [32, 64, 128]
+    hp_dense_units = hp.Int('dense_units', min_value=100, max_value=100, step=25)
+    hp_lr = hp.Float('learning_rate', min_value=1e-3, max_value=1e-3, sampling='LOG', default=1e-3)  # min_value=1e-5, max_value=1e-2, sampling='LOG', default=1e-3)
     model = Sequential()
     # Add the layers
-    hp_filters = hp.Int('units', min_value=40, max_value=40, step=5)
-    hp_kernel = hp.Int('units', min_value=5, max_value=5, step=5)
-    model.add(Conv2D(filters=40, kernel_size=5,
-                     activation='relu', input_shape=input_shape))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    for i in range(1, hp.Int("num_layers", 2, max_conv_layers+1)):
+        print("Layer: ", i)
+        model.add(Conv2D(filters=hp_filters[i-1], kernel_size=3,
+                         activation=hp_cnn_activation[i-1], input_shape=input_shape))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Flatten())
-    hp_dense = hp.Int('units', min_value=100, max_value=150, step=25)
-    model.add(Dense(hp_dense, activation='relu'))
+    model.add(Dense(hp_dense_units, activation=hp_dense_activation))
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
-    opt = optimizers.SGD(learning_rate=lr)
+    # TODO: Use adam optimizer
+    opt = optimizers.SGD(learning_rate=hp_lr)
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=['accuracy'])
     return model
 
@@ -100,6 +106,7 @@ def main():
     batch_size = 32
     lr = 0.001
     validation_set_perc = 0.01  # Percentage of the train dataset to use for validation
+    max_conv_layers = 3  # Only for tuning
 
     # --- Initializing --- #
     args = get_args()
@@ -109,8 +116,7 @@ def main():
     elif args.task == 2:
         build_model = build_model_task_2_conv
     elif args.task == 3:
-        build_model = build_model_task_3_conv_1
-
+        build_model = tune_model_task_3_conv
     else:
         raise ValueError("Task not implemented")
     # Create a validation set suffix if needed
@@ -146,7 +152,8 @@ def main():
     # Build the model
     if args.tuning:
         build_model = partial(build_model, input_shape=images_train.shape[1:],
-                              n_classes=encoded_train_labels.shape[1], lr=lr)
+                              n_classes=encoded_train_labels.shape[1],
+                              lr=lr, max_conv_layers=max_conv_layers)
         model = kt.Hyperband(build_model,
                              objective='val_accuracy',
                              max_epochs=10,
@@ -154,7 +161,7 @@ def main():
                              directory=os.path.join(model_path,
                                                     f'{args.attr}_attr',
                                                     f'task_{args.task}'),
-                             project_name=f'tuning_{epochs}epochs_{batch_size}batchsize_{lr}lr')
+                             project_name=f'tuning_{epochs}epochs_{batch_size}batchsize_{lr}lr_max_conv_layers{max_conv_layers}')
         stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
         callbacks.append(stop_early)
     else:
@@ -181,6 +188,22 @@ def main():
                      batch_size=batch_size,
                      validation_split=validation_set_perc,
                      callbacks=callbacks)
+        # Get the optimal hyperparameters
+        best_hps = model.get_best_hyperparameters(num_trials=1)[0]
+        print("Best Model:")
+        print(model.results_summary())
+        # Now we can straight go and train the best model
+        # h_model = model.hypermodel.build(best_hps)
+
+        # Train the hyper-tuned model
+        # del call_backs[0]
+        # model.fit(images_train,
+        #           encoded_train_labels,
+        #           epochs=epochs,
+        #           batch_size=batch_size,
+        #           validation_split=validation_set_perc,
+        #           callbacks=callbacks)
+        return
     else:
         model.fit(images_train,
                   encoded_train_labels,
@@ -190,16 +213,7 @@ def main():
                   callbacks=callbacks)
 
     # Run "tensorboard --logdir logs/fit" in terminal and open http://localhost:6006/
-    if args.tuning:
-        # Get the optimal hyper-parameters
-        best_hps = model.get_best_hyperparameters(num_trials=1)[0]
-        print(best_hps)
 
-        print(f"""
-                The hyperparameter search is complete. The optimal number of units in the first densely-connected
-                layer is {best_hps.get('units')} and the optimal learning rate for the optimizer
-                is {best_hps.get('lr')}.
-                """)
     # --- Evaluation --- #
     # Flatten the images
     if args.task == 1:
@@ -210,7 +224,7 @@ def main():
     # Save the model
     # If we want to save every few epochs:
     # https://stackoverflow.com/a/59069122/7043716
-    model_name = f'model_{epochs}epochs_{batch_size}batchsize_{lr}lr'
+    model_name = f'model_{epochs}epochs_{batch_size}batch-size_{lr}lr'
     if args.n_rows != -1:
         model_name += f'_{args.n_rows}rows'
     model_name += f'{val_set_suffix}.h5'
