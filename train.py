@@ -5,8 +5,9 @@ import tensorboard
 import datetime
 import tensorflow as tf
 from tensorflow.keras import Model, optimizers, losses, metrics
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Flatten, Activation, Conv2D, MaxPooling2D
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, Flatten, Activation, \
+    Conv2D, MaxPooling2D, Lambda, Input
 from tensorflow.keras.callbacks import TensorBoard
 from src import *
 
@@ -70,7 +71,23 @@ def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: fl
 
     return model
 
+def build_model_task_5_auto(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
+    """ Build a feed-forward conv neural network"""
 
+    inputs = Input(shape=input_shape, name='encoder_input')
+    x = Dense(intermediate_dim, activation='relu', name="encoder_hidden_layer")(inputs)
+    z_mean = Dense(latent_dim, name='z_mean')(x)
+    z_log_var = Dense(latent_dim, name='z_log_var')(x)
+
+    # use reparameterization trick to push the sampling out as input
+    z = Lambda(sampling, name='z')([z_mean, z_log_var])
+
+    # instantiate encoder model
+    encoder = Model(inputs, [z_mean, z_log_var, z], name='encoder_output')
+    encoder.summary()
+
+
+    return model
 # def build_model(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
 #     """ Build a feed-forward convolutional neural network"""
 #     model = Sequential()
@@ -93,8 +110,8 @@ def main():
     """
 
     # --- Hyper parameters --- #
-    epochs = 200
-    batch_size = 32
+    epochs = 10
+    batch_size = 64
     lr = 0.001
     validation_set_perc = 0.01  # Percentage of the train dataset to use for validation
 
@@ -102,8 +119,10 @@ def main():
     args = get_args()
     if args.task == 1:
         build_model = build_model_Dense
-    elif args.task==2:
+    elif args.task == 2:
         build_model = build_model_task_2_conv
+    elif args.task == 5:
+        build_model = build_model_task_5_auto
     else:
         raise ValueError("Task not implemented")
     # Create a validation set suffix if needed
@@ -148,7 +167,11 @@ def main():
                         lr=lr)
     print(model.summary())
 
-    log_folder = "logs/fit/t-"+str(args.task)+"b-" + str(batch_size)+"/lr-"+str(lr)
+    log_folder = "logs/fit/t-"+str(args.task)+\
+                 "/a-"+args.attr+\
+                 "/b-" + str(batch_size)+\
+                 "/lr-"+str(lr)+ "/"+\
+                 datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
     callbacks = [TensorBoard(log_dir=log_folder,
                              histogram_freq=1,
