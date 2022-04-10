@@ -5,3 +5,4 @@ tensorboard
 pandas
 Pillow
 sklearn
+keras-tuner
