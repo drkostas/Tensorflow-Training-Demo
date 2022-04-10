@@ -93,7 +93,7 @@ def main():
     """
 
     # --- Hyper parameters --- #
-    epochs = 10
+    epochs = 200
     batch_size = 32
     lr = 0.001
     validation_set_perc = 0.01  # Percentage of the train dataset to use for validation
@@ -111,32 +111,31 @@ def main():
     if args.tuning:
         val_set_suffix = '_valset'
     # Load the dataset
-    images_src, all_labels_src = load_dataset(dataset='train', n_rows=args.n_rows)
+    images_train, all_labels_src = load_dataset(dataset='train', n_rows=args.n_rows)
     images_test, all_labels_test = load_dataset(dataset='val', n_rows=args.n_rows)
     # Extract the labels for the desired task
     print("All tasks: ", list(all_labels_src.columns)[1:-1])
-    labels_src = all_labels_src[args.attr].values
+    labels_train = all_labels_src[args.attr].values
     labels_test = all_labels_test[args.attr].values
     # Split the train set into train and validation
-    images_train, images_val, \
-        labels_train, labels_val = split_data(images_src, labels_src, val_perc=validation_set_perc)
+    # images_train, images_val, \
+    #     labels_train, labels_val = split_data(images_src, labels_src, val_perc=validation_set_perc)
     # Scale the data
     min_max_dict = min_max_scale(images_train)
     images_train, train_min, train_max = \
         min_max_dict['data'], min_max_dict['min'], min_max_dict['max']
-    images_val = min_max_scale(images_val, min_max_dict['max'], min_max_dict['min'])['data']
+    #images_val = min_max_scale(images_val, min_max_dict['max'], min_max_dict['min'])['data']
     # Save the min and max values of the train set for later use
     del min_max_dict['data']  # Don't need this anymore
     save_pickle(data=min_max_dict, file_name=f'min_max_dict{val_set_suffix}.pkl',
                 attr=args.attr, task=args.task)
     # One hot encode the labels
     encoded_train_labels = one_hot_encoder(labels_train)
-    encoded_val_labels = one_hot_encoder(labels_val)
     encoded_test_labels = one_hot_encoder(labels_test)
     # Select the train or validation set
-    if args.tuning:
-        images_train = images_val
-        encoded_train_labels = encoded_val_labels
+    #if args.tuning:
+    #    images_train = images_val
+    #    encoded_train_labels = encoded_val_labels
 
     # ------- Start of Code ------- #
     # --- Training --- #
