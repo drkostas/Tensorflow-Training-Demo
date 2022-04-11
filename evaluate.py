@@ -1,15 +1,5 @@
 import traceback
 import argparse
-from functools import partial
-from tensorflow.keras import Model, optimizers, losses, metrics
-from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, Flatten, Activation, \
-    Conv2D, MaxPooling2D, Lambda, Input, Conv2DTranspose, Reshape
-from tensorflow.keras.losses import mse
-from tensorflow.keras.callbacks import TensorBoard
-import keras_tuner as kt
-from tensorflow.keras import backend as K
-from sklearn import metrics
 from src import *
 
 
@@ -40,6 +30,7 @@ def get_args() -> argparse.Namespace:
     optional_args.add_argument('-o', '--attr2', type=str, required=False,
                                choices=['age', 'gender', 'race'], help="The Second attribute to train on. Only for Task 4.")
     return parser.parse_args()
+
 
 def main():
     """This is the main function of train.py
