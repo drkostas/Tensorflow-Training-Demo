@@ -85,7 +85,7 @@ def tune_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
     for i in range(1, hp.Int("num_layers", 2, max_conv_layers+1)):
         model.add(Conv2D(filters=hp_filters[i-1], kernel_size=3,
                          activation=hp_cnn_activation[i-1], input_shape=input_shape))
-        model.add(MaxPooling2D(pool_size=(2, 2)))
+        model.add(MaxPooling2D(pool_size=(2, 2), padding="same"))
     model.add(Flatten())
     model.add(Dense(hp_dense_units, activation=hp_dense_activation))
     model.add(Dense(n_classes, activation='softmax'))
@@ -127,7 +127,7 @@ def main():
     images_train, all_labels_src = load_dataset(dataset='train', n_rows=args.n_rows)
     images_test, all_labels_test = load_dataset(dataset='val', n_rows=args.n_rows)
     # Extract the labels for the desired task
-    print("All tasks: ", list(all_labels_src.columns)[1:-1])
+    print("All Attributes: ", list(all_labels_src.columns)[1:-1])
     labels_train = all_labels_src[args.attr].values
     labels_test = all_labels_test[args.attr].values
     # Scale the data
