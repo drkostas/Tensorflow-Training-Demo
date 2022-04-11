@@ -41,8 +41,14 @@ def get_args() -> argparse.Namespace:
                                help="How many rows of the dataset to read.")
     optional_args.add_argument("--load-checkpoint", action='store_true', required=False,
                                help="Whether to load model from a checkpoint.")
+    optional_args.add_argument("--plot-only", action='store_true', required=False,
+                               help="No training, only plot results. "
+                                    "Requires the use of --load-checkpoint.")
     optional_args.add_argument("-h", "--help", action="help", help="Show this help message and exit")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.plot_only and not args.load_checkpoint:
+        raise ValueError("--plot-only requires --load-checkpoint")
+    return args
 
 
 def sampling(args):
@@ -231,7 +237,7 @@ def main():
         epochs = 60
         lr = 0.001
         batch_size = 128
-        chkp_epoch_to_load = 60
+        chkp_epoch_to_load = 58
         chkp_additional_epochs = 60
     elif args.task == 2:
         epochs = 45
@@ -371,27 +377,28 @@ def main():
         return
 
     # ---------------------- Fit the Model ---------------------- #
-    callbacks.append(TensorBoard(log_dir=log_folder,
-                                 histogram_freq=1,
-                                 write_graph=True,
-                                 write_images=False,
-                                 update_freq='epoch',
-                                 profile_batch=2,
-                                 embeddings_freq=1))
-    callbacks.append(tf.keras.callbacks.ModelCheckpoint(
-        filepath=os.path.join(save_dir_path, model_name[:-3]+'_epoch{epoch:02d}.ckpt'),
-        save_weights_only=False,
-        monitor='val_loss',
-        mode='auto',
-        save_best_only=True))
+    if not args.plot_only:
+        callbacks.append(TensorBoard(log_dir=log_folder,
+                                     histogram_freq=1,
+                                     write_graph=True,
+                                     write_images=False,
+                                     update_freq='epoch',
+                                     profile_batch=2,
+                                     embeddings_freq=1))
+        callbacks.append(tf.keras.callbacks.ModelCheckpoint(
+            filepath=os.path.join(save_dir_path, model_name[:-3]+'_epoch{epoch:02d}.ckpt'),
+            save_weights_only=False,
+            monitor='val_loss',
+            mode='auto',
+            save_best_only=True))
 
-    model.fit(images_train,
-              encoded_train_labels,
-              initial_epoch=chkp_epoch_to_load if args.load_checkpoint else 0,
-              epochs=epochs+chkp_additional_epochs if args.load_checkpoint else epochs,
-              batch_size=batch_size,
-              validation_split=validation_set_perc,
-              callbacks=callbacks)
+        model.fit(images_train,
+                  encoded_train_labels,
+                  initial_epoch=chkp_epoch_to_load if args.load_checkpoint else 0,
+                  epochs=epochs+chkp_additional_epochs if args.load_checkpoint else epochs,
+                  batch_size=batch_size,
+                  validation_split=validation_set_perc,
+                  callbacks=callbacks)
 
     # ---------------------- Plots ---------------------- #
     file_writer = tf.summary.create_file_writer(log_folder)
@@ -433,18 +440,6 @@ def main():
         figure = visualize_random_input(decoder)
         with file_writer.as_default():
             tf.summary.image("Random->Image", plot_to_image(figure), step=0)
-
-    # ---------------------- Evaluation ---------------------- #
-    # Flatten the images
-    if args.task == 1:
-        images_test = np.array([image.flatten() for image in images_test])
-    elif args.task in (2, 3):
-        images_train = images_train.reshape(*images_train.shape, 1)
-    elif args.task == 5:
-        images_train = images_train.reshape(*images_train.shape, 1)
-        encoded_train_labels = images_train
-    # Evaluate the model
-    # model.evaluate(images_test, encoded_test_labels)
 
     # ---------------------- Save Model ---------------------- #
     # If we want to save every few epochs:
