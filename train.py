@@ -31,14 +31,17 @@ def get_args() -> argparse.Namespace:
                                choices=['age', 'gender', 'race'], help="The attribute to train on.")
     # Optional args
     optional_args = parser.add_argument_group('Optional Arguments')
+    optional_args.set_defaults(feature=False)
     optional_args.add_argument("--tuning", action='store_true', required=False,
                                help="Whether to use the validation or training set for training.")
-    optional_args.set_defaults(feature=False)
+    optional_args.add_argument('-o', '--attr2', type=str, required=False,
+                               choices=['age', 'gender', 'race'],
+                               help="The Second attribute to train on. Only for Task 4.")
     optional_args.add_argument("--n-rows", default=-1, type=int, required=False,
                                help="How many rows of the dataset to read.")
+    optional_args.add_argument("--load-checkpoint", action='store_true', required=False,
+                               help="Whether to load model from a checkpoint.")
     optional_args.add_argument("-h", "--help", action="help", help="Show this help message and exit")
-    optional_args.add_argument('-o', '--attr2', type=str, required=False,
-                               choices=['age', 'gender', 'race'], help="The Second attribute to train on. Only for Task 4.")
     return parser.parse_args()
 
 
@@ -228,18 +231,26 @@ def main():
         epochs = 60
         lr = 0.001
         batch_size = 128
+        chkp_epoch_to_load = 60
+        chkp_additional_epochs = 60
     elif args.task == 2:
         epochs = 45
         lr = 0.001
         batch_size = 128
+        chkp_epoch_to_load = 45
+        chkp_additional_epochs = 30
     elif args.task == 3:
         epochs = 20
-        lr = 0.00032  # For task 3
+        lr = 0.00032
         batch_size = 128
+        chkp_epoch_to_load = 8
+        chkp_additional_epochs = 30
     else:
         epochs = 70
         lr = 0.00032
         batch_size = 32
+        chkp_epoch_to_load = 30
+        chkp_additional_epochs = 30
     tuning_epochs = 20
     validation_set_perc = 0.2  # Percentage of the train dataset to use for validation
     max_conv_layers = 4  # Only for tuning
@@ -261,6 +272,8 @@ def main():
     model_name += f'{val_set_suffix}.h5'
     save_dir_path = os.path.join(model_path, f'{args.attr}_attr', f'task_{args.task}')
     save_file_path = os.path.join(save_dir_path, model_name)
+    chkp_filename = os.path.join(save_dir_path,
+                                 model_name[:-3] + f'_epoch{chkp_epoch_to_load:02d}.ckpt')
     if args.task == 1:
         build_model = build_model_Dense
     elif args.task == 2:
@@ -320,10 +333,12 @@ def main():
             encoded_train_labels = [encoded_test_labels,encoded_train_labels_2]
         else:
             n_classes = encoded_train_labels.shape[1]
-
-        model = build_model(input_shape=images_train.shape[1:],
-                            n_classes=n_classes,
-                            lr=lr)
+        if args.load_checkpoint:
+            model = tf.keras.models.load_model(chkp_filename)
+        else:
+            model = build_model(input_shape=images_train.shape[1:],
+                                n_classes=n_classes,
+                                lr=lr)
         if args.task == 5:
             model, decoder = model
         print(model.summary())
@@ -372,7 +387,8 @@ def main():
 
     model.fit(images_train,
               encoded_train_labels,
-              epochs=epochs,
+              initial_epoch=chkp_epoch_to_load if args.load_checkpoint else 0,
+              epochs=epochs+chkp_additional_epochs if args.load_checkpoint else epochs,
               batch_size=batch_size,
               validation_split=validation_set_perc,
               callbacks=callbacks)
