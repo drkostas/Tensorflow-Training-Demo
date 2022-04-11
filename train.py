@@ -418,18 +418,6 @@ def main():
         with file_writer.as_default():
             tf.summary.image("Random->Image", plot_to_image(figure), step=0)
 
-    # ---------------------- Evaluation ---------------------- #
-    # Flatten the images
-    if args.task == 1:
-        images_test = np.array([image.flatten() for image in images_test])
-    elif args.task in (2, 3):
-        images_train = images_train.reshape(*images_train.shape, 1)
-    elif args.task == 5:
-        images_train = images_train.reshape(*images_train.shape, 1)
-        encoded_train_labels = images_train
-    # Evaluate the model
-    # model.evaluate(images_test, encoded_test_labels)
-
     # ---------------------- Save Model ---------------------- #
     # If we want to save every few epochs:
     # https://stackoverflow.com/a/59069122/7043716
