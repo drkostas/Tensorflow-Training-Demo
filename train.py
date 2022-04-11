@@ -41,7 +41,8 @@ def get_args() -> argparse.Namespace:
     optional_args.add_argument("--n-rows", default=-1, type=int, required=False,
                                help="How many rows of the dataset to read.")
     optional_args.add_argument("-h", "--help", action="help", help="Show this help message and exit")
-
+    optional_args.add_argument('-o', '--attr2', type=str, required=False,
+                               choices=['age', 'gender', 'race'], help="The Second attribute to train on. Only for Task 4.")
     return parser.parse_args()
 
 def plot_to_image(figure):
@@ -157,6 +158,26 @@ def tune_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
     return model
 
 
+def build_model_task_4_conv(input_shape: Tuple[int, int], n_classes: Tuple[int,int], lr: float = 0.001) -> Model:
+    """ Build a feed-forward conv neural network"""
+    model = Sequential()
+    # input_shape = list(input_shape)
+    # input_shape.append(1)
+    # Add the layers
+    inputs = Input(shape=input_shape, name='ImageInput')
+    cov_1 = Conv2D(filters=40, kernel_size=3, activation='relu')(inputs)
+    pool = MaxPooling2D(pool_size=(2, 2))(cov_1)
+    cov_2 = Conv2D(filters=40, kernel_size=3, activation='relu')(pool)
+    flat = Flatten()(cov_2)
+    x = Dense(100, activation='relu')(flat)
+    c1 = Dense(n_classes[0], activation='softmax')(x)
+    c2 = Dense(n_classes[1], activation='softmax')(x)
+    # Select the optimizer and the loss function
+    model = Model(inputs,[c1,c2])
+    opt = optimizers.SGD(learning_rate=lr)
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=['accuracy'])
+    return model
+
 def build_model_task_5_auto(input_shape: Tuple[int, int], n_classes: int, lr: float = 0.001) -> Model:
     """ Build an Auto Encoder"""
 
@@ -172,7 +193,7 @@ def build_model_task_5_auto(input_shape: Tuple[int, int], n_classes: int, lr: fl
     # use reparameterization trick to push the sampling out as input
     z = Lambda(sampling, name='z')([z_mean, z_log_var])
     # instantiate encoder model
-    encoder = Model(inputs, [cov_1, cov_2, cov_3,cov_4, z_mean, z_log_var, z], name='encoder_output')
+    encoder = Model(inputs, [z], name='encoder_output')
     # build decoder model
     latent_inputs = Input(shape=(15,), name='z_sampling')
     x_out = Dense(5120, activation='relu', name="decoder_hidden_layer")(latent_inputs)
@@ -181,12 +202,12 @@ def build_model_task_5_auto(input_shape: Tuple[int, int], n_classes: int, lr: fl
     covT_2 = Conv2DTranspose(filters=20, kernel_size=5, activation='relu')(covT_1)
     covT_3 = Conv2DTranspose(filters=20, kernel_size=5, activation='relu')(covT_2)
     covT_4 = Conv2DTranspose(filters=1, kernel_size=5, activation='relu')(covT_3)
-    decoder = Model(latent_inputs, [x_out,resh,covT_1,covT_2,covT_3,covT_4], name='decoder_output')
+    decoder = Model(latent_inputs, [covT_4], name='decoder_output')
     decoder.compile(optimizer='adam')
-    outputs = decoder(encoder(inputs)[6])
+    outputs = decoder(encoder(inputs))
     model = Model(inputs, outputs, name='vae_mlp')
 
-    reconstruction_loss = mse(inputs, outputs[5])
+    reconstruction_loss = mse(inputs, outputs)
     reconstruction_loss *= 1
     reconstruction_loss = K.mean(reconstruction_loss)
     kl_loss = K.exp(z_log_var) + K.square(z_mean) - z_log_var - 1
@@ -203,7 +224,7 @@ def main():
     """
 
     # --- Hyper parameters --- #
-    epochs = 50
+    epochs = 10
     batch_size = 32
     tuning_image_num = 5000
     tuningEpochs = 20
@@ -223,6 +244,8 @@ def main():
         build_model = build_model_task_2_conv
     elif args.task == 3:
         build_model = tune_model_task_3_conv
+    elif args.task == 4:
+        build_model = build_model_task_4_conv
     elif args.task == 5:
         build_model = build_model_task_5_auto
     else:
@@ -237,6 +260,9 @@ def main():
     # Extract the labels for the desired task
     labels_train = all_labels_src[args.attr].values
     labels_test = all_labels_test[args.attr].values
+
+    if(args.task==4):
+        labels_train_2 = all_labels_test[args.attr2].values
     # Scale the data
     min_max_dict = min_max_scale(images_train)
     images_train, train_min, train_max = \
@@ -249,6 +275,8 @@ def main():
     encoded_train_labels = one_hot_encoder(labels_train)
     encoded_test_labels = one_hot_encoder(labels_test)
 
+    if(args.task == 4):
+        encoded_train_labels_2 = one_hot_encoder(labels_train_2)
     # ------- Start of Code ------- #
 
     # --- Training --- #
@@ -310,8 +338,13 @@ def main():
                             lr=lr)
         print(model.summary())
     else:
+        if(args.task==4):
+            n_classes = (encoded_train_labels.shape[1],encoded_train_labels_2.shape[1])
+            encoded_train_labels = [encoded_test_labels,encoded_train_labels_2]
+        else:
+            n_classes = encoded_train_labels.shape[1]
         model = build_model(input_shape=images_train.shape[1:],
-                            n_classes=encoded_train_labels.shape[1],
+                            n_classes=n_classes,
                             lr=lr)
         print(model.summary())
     # Fit Model
@@ -335,7 +368,7 @@ def main():
 
     file_writer = tf.summary.create_file_writer(log_folder)
     # Create Confusion Matrix
-    if(args.task in [1,2,3,4]):
+    if(args.task in [1,2,3]):
         class_names = np.unique(labels_train)
         predictions = model.predict(images_train)
         predictions = np.argmax(predictions, axis=1)
@@ -343,8 +376,25 @@ def main():
         figure = plot_confusion_matrix(cm, class_names=class_names)
         cm_image = plot_to_image(figure)
         with file_writer.as_default():
-            tf.summary.image("Confusion Matrix", cm_image,step=epochs)
+            tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr), cm_image,step=epochs)
 
+    if(args.task ==4):
+        class_names = np.unique(labels_train)
+        predictions = model.predict(images_train)
+        predictions_1 = np.argmax(predictions[0], axis=1)
+        cm = metrics.confusion_matrix(np.argmax(encoded_train_labels[0], axis=1), predictions_1)
+        figure = plot_confusion_matrix(cm, class_names=class_names)
+        cm_image = plot_to_image(figure)
+        with file_writer.as_default():
+            tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr), cm_image,step=epochs)
+
+        class_names = np.unique(labels_train_2)
+        predictions_2 = np.argmax(predictions[1], axis=1)
+        cm = metrics.confusion_matrix(np.argmax(encoded_train_labels[1], axis=1), predictions_2)
+        figure = plot_confusion_matrix(cm, class_names=class_names)
+        cm_image = plot_to_image(figure)
+        with file_writer.as_default():
+            tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr2), cm_image,step=epochs)
 
 
     # Creates Images from the Auto Encoded
@@ -360,7 +410,7 @@ def main():
             plt.imshow(image)
             plt.subplot(2,5,i+6)
             plt.grid(False)
-            plt.imshow(predicted[5][i])
+            plt.imshow(predicted[0][i])
         with file_writer.as_default():
             tf.summary.image("Image->Image", plot_to_image(figure), step=0)
 
@@ -373,7 +423,7 @@ def main():
             image = images_train[i].reshape(32,32)
             plt.subplot(2, 5, i + 1)
             plt.grid(False)
-            plt.imshow(randPredict[5][i])
+            plt.imshow(randPredict[0][i])
 
         with file_writer.as_default():
             tf.summary.image("Random->Image", plot_to_image(figure), step=0)
