@@ -226,7 +226,7 @@ def main():
         Run "tensorboard --logdir logs/fit" in terminal and open http://localhost:6006/
     """
     # ---------------------- Hyperparameters ---------------------- #
-    epochs = 20
+    epochs = 70
     batch_size = 32
     tuning_image_num = 5000  # TODO: I'm already doing that in the data loader (you could use the --n-rows option and pass args.n_rows)
     tuning_epochs = 20
@@ -271,7 +271,7 @@ def main():
     labels_test = all_labels_test[args.attr].values
 
     if(args.task==4):
-        labels_train_2 = all_labels_test[args.attr2].values
+        labels_train_2 = all_labels_src[args.attr2].values
     # Scale the data
     min_max_dict = min_max_scale(images_train)
     images_train, train_min, train_max = \
@@ -303,9 +303,10 @@ def main():
     if not args.tuning:
         if(args.task==4):
             n_classes = (encoded_train_labels.shape[1],encoded_train_labels_2.shape[1])
-            encoded_train_labels = [encoded_test_labels,encoded_train_labels_2]
+            encoded_train_labels = [encoded_train_labels,encoded_train_labels_2]
         else:
             n_classes = encoded_train_labels.shape[1]
+
         model = build_model(input_shape=images_train.shape[1:],
                             n_classes=n_classes,
                             lr=lr)
