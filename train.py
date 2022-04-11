@@ -117,13 +117,13 @@ def build_model_task_3_conv(input_shape: Tuple[int, int], n_classes: int,
     # Select the optimizer and the loss function
     opt = optimizers.Adam(learning_rate=lr)
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(),
-                  optimizer=opt, metrics=['accuracy', 'mse'])
+                  optimizer=opt, metrics=['accuracy'])
     return model
 
 
-def build_model_task_4_conv(input_shape: Tuple[int, int], n_classes: Tuple[int,int], lr: float = 0.001) -> Model:
+def build_model_task_4_conv(input_shape: Tuple[int, int], n_classes: Tuple[int, int],
+                            lr: float = 0.001) -> Model:
     """ Build a feed-forward conv neural network"""
-    model = Sequential()
     # input_shape = list(input_shape)
     # input_shape.append(1)
     # Add the layers
@@ -172,8 +172,7 @@ def build_model_task_5_auto(input_shape: Tuple[int, int],
 
     decoder = Model(latent_inputs, [covT_4], name='decoder_output')
 
-
-    decoder.compile(optimizer='adam')  # TODO: it gives the following error:
+    decoder.compile(optimizer='adam')
     outputs = decoder(encoder(inputs))
     model = Model(inputs, outputs, name='vae_mlp')
 
@@ -205,7 +204,7 @@ def tune_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
     for i in range(1, hp.Int("num_layers", 2, max_conv_layers + 1)):
         model.add(Conv2D(filters=hp_filters[i - 1], kernel_size=3,
                          activation=hp_cnn_activation[i - 1], input_shape=input_shape))
-        model.add(MaxPooling2D(pool_size=(2, 2), padding="same"))
+        model.add(MaxPooling2D(pool_size=(3, 3), padding="same"))
     model.add(Flatten())
     model.add(Dense(hp_dense_units, activation=hp_dense_activation))
     model.add(Dense(n_classes, activation='softmax'))
@@ -216,36 +215,49 @@ def tune_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
                   optimizer=opt, metrics=['accuracy', 'mse'])
     return model
 
+
 def main():
     """This is the main function of train.py
 
-<<<<<<< HEAD
-    # --- Hyper parameters --- #
-    epochs = 10
-=======
         Run "tensorboard --logdir logs/fit" in terminal and open http://localhost:6006/
     """
+    args = get_args()
     # ---------------------- Hyperparameters ---------------------- #
-    epochs = 20
-    batch_size = 32
-    tuning_image_num = 5000  # TODO: I'm already doing that in the data loader (you could use the --n-rows option and pass args.n_rows)
+
+    if args.task == 1:
+        epochs = 60
+        lr = 0.001
+    elif args.task == 2:
+        epochs = 45
+        lr = 0.001  # For tasks 1 and 2
+    elif args.task == 3:
+        epochs = 20
+        lr = 0.00032  # For task 3
+    else:
+        epochs = 20
+        lr = 0.001
+    batch_size = 128
     tuning_epochs = 20
-    # lr = 0.001  # For tasks 1 and 2
-    lr = 0.00032  # For task 3
-    validation_set_perc = 0.01  # Percentage of the train dataset to use for validation
+    validation_set_perc = 0.2  # Percentage of the train dataset to use for validation
     max_conv_layers = 4  # Only for tuning
 
     # ---------------------- Initialize variables ---------------------- #
-    args = get_args()
     callbacks = []
+    log_folder = "logs/fit/t-" + str(args.task) + \
+                 "/a-" + args.attr + \
+                 "/b-" + str(batch_size) + \
+                 "/lr-" + str(lr)
     # Create a validation set suffix if needed
     val_set_suffix = ''
     if args.tuning:
         val_set_suffix = '_valset'
-    log_folder = f"logs/fit{val_set_suffix}/t-" + str(args.task) + \
-                 "/a-" + args.attr + \
-                 "/b-" + str(batch_size) + \
-                 "/lr-" + str(lr)
+    # Save model path
+    model_name = f'model_{epochs}epochs_{batch_size}batch-size_{lr}lr'
+    if args.n_rows != -1:
+        model_name += f'_{args.n_rows}rows'
+    model_name += f'{val_set_suffix}.h5'
+    save_dir_path = os.path.join(model_path, f'{args.attr}_attr', f'task_{args.task}')
+    save_file_path = os.path.join(save_dir_path, model_name)
     if args.task == 1:
         build_model = build_model_Dense
     elif args.task == 2:
@@ -270,7 +282,7 @@ def main():
     labels_train = all_labels_src[args.attr].values
     labels_test = all_labels_test[args.attr].values
 
-    if(args.task==4):
+    if args.task == 4:
         labels_train_2 = all_labels_test[args.attr2].values
     # Scale the data
     min_max_dict = min_max_scale(images_train)
@@ -284,7 +296,7 @@ def main():
     encoded_train_labels = one_hot_encoder(labels_train)
     encoded_test_labels = one_hot_encoder(labels_test)
 
-    if(args.task == 4):
+    if args.task == 4:
         encoded_train_labels_2 = one_hot_encoder(labels_train_2)
     # ------- Start of Code ------- #
 
@@ -301,8 +313,8 @@ def main():
 
     # Training/Tuning
     if not args.tuning:
-        if(args.task==4):
-            n_classes = (encoded_train_labels.shape[1],encoded_train_labels_2.shape[1])
+        if args.task == 4:
+            n_classes = (encoded_train_labels.shape[1], encoded_train_labels_2.shape[1])
             encoded_train_labels = [encoded_test_labels,encoded_train_labels_2]
         else:
             n_classes = encoded_train_labels.shape[1]
@@ -336,33 +348,11 @@ def main():
         # best_hps = model.get_best_hyperparameters(num_trials=1)[0]
         print("Best Model:")
         print(model.results_summary())
-
-        # Now we can straight go and train the best model
-        # h_model = model.hypermodel.build(best_hps)
-
-        # Train the hyper-tuned model
-        # del call_backs[0]
-        # model.fit(images_train,
-        #           encoded_train_labels,
-        #           epochs=epochs,
-        #           batch_size=batch_size,
-        #           validation_split=validation_set_perc,
-        #           callbacks=callbacks)
-        model = tune_model_task_3_conv(hp = best_hps,
-                                      input_shape=images_train.shape[1:],
-                                      n_classes=encoded_train_labels.shape[1],
-
-                                      lr=lr)
         print(model.search_space_summary())
         print("####### Tuning Done #######")
         return
 
     # ---------------------- Fit the Model ---------------------- #
-
-    log_folder = "logs/fit/t-" + str(args.task) + \
-                 "/a-" + args.attr + \
-                 "/b-" + str(batch_size) + \
-                 "/lr-" + str(lr)
     callbacks.append(TensorBoard(log_dir=log_folder,
                                  histogram_freq=1,
                                  write_graph=True,
@@ -370,6 +360,13 @@ def main():
                                  update_freq='epoch',
                                  profile_batch=2,
                                  embeddings_freq=1))
+    callbacks.append(tf.keras.callbacks.ModelCheckpoint(
+        filepath=os.path.join(save_dir_path, model_name[:-3]+'_epoch{epoch:02d}.ckpt'),
+        save_weights_only=False,
+        monitor='val_loss',
+        mode='auto',
+        save_best_only=True))
+
     model.fit(images_train,
               encoded_train_labels,
               epochs=epochs,
@@ -379,7 +376,7 @@ def main():
 
     file_writer = tf.summary.create_file_writer(log_folder)
     # Create Confusion Matrix
-    if(args.task in [1,2,3]):
+    if args.task in (1, 2, 3):
         class_names = np.unique(labels_train)
         predictions = model.predict(images_train)
         predictions = np.argmax(predictions, axis=1)
@@ -389,7 +386,7 @@ def main():
         with file_writer.as_default():
             tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr), cm_image,step=epochs)
 
-    if(args.task ==4):
+    if args.task == 4:
         class_names = np.unique(labels_train)
         predictions = model.predict(images_train)
         predictions_1 = np.argmax(predictions[0], axis=1)
@@ -405,10 +402,8 @@ def main():
         figure = plot_confusion_matrix(cm, class_names=class_names)
         cm_image = plot_to_image(figure)
         with file_writer.as_default():
-            tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr2), cm_image,step=epochs)
-
-
-
+            tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr2),
+                             cm_image, step=epochs)
     # Create Images from the Auto Encoded
     if args.task == 5:
         figure = visualize_encoder_results(model, images_train)
@@ -434,12 +429,7 @@ def main():
     # ---------------------- Save Model ---------------------- #
     # If we want to save every few epochs:
     # https://stackoverflow.com/a/59069122/7043716
-    model_name = f'model_{epochs}epochs_{batch_size}batch-size_{lr}lr'
-    if args.n_rows != -1:
-        model_name += f'_{args.n_rows}rows'
-    model_name += f'{val_set_suffix}.h5'
-    save_path = os.path.join(model_path, f'{args.attr}_attr', f'task_{args.task}', model_name)
-    model.save(save_path)
+    model.save(save_file_path)
 
 
 if __name__ == '__main__':
