@@ -262,6 +262,7 @@ def main():
     max_conv_layers = 4  # Only for tuning
 
     # ---------------------- Initialize variables ---------------------- #
+    print("####### Initializing variable #######")
     callbacks = []
     log_folder = "logs/fit/t-" + str(args.task) + \
                  "/a-" + args.attr + \
@@ -297,6 +298,7 @@ def main():
         raise ValueError("Task not implemented")
 
     # ---------------------- Load and prepare Dataset ---------------------- #
+    print("####### Loading Dataset #######")
     # Load the dataset
     images_train, all_labels_src = load_dataset(dataset='train', n_rows=args.n_rows)
     images_test, all_labels_test = load_dataset(dataset='val', n_rows=args.n_rows)
@@ -322,6 +324,7 @@ def main():
         encoded_train_labels_2 = one_hot_encoder(labels_train_2)
 
     # ---------------------- Build the Model ---------------------- #
+    print("####### Building/Loading the Model #######")
     # Prepare images for training
     if args.task == 1:
         # Flatten the images
@@ -378,6 +381,7 @@ def main():
 
     # ---------------------- Fit the Model ---------------------- #
     if not args.plot_only:
+        print("####### Fitting the Model #######")
         callbacks.append(TensorBoard(log_dir=log_folder,
                                      histogram_freq=1,
                                      write_graph=True,
@@ -403,6 +407,7 @@ def main():
     # ---------------------- Plots ---------------------- #
     file_writer = tf.summary.create_file_writer(log_folder)
     # Create Confusion Matrix
+    print("####### Creating Confusion Matrix #######")
     if args.task in (1, 2, 3):
         class_names = np.unique(labels_train)
         predictions = model.predict(images_train)
@@ -411,7 +416,8 @@ def main():
         figure = plot_confusion_matrix(cm, class_names=class_names)
         cm_image = plot_to_image(figure)
         with file_writer.as_default():
-            tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr), cm_image,step=epochs)
+            tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr),
+                             cm_image, step=epochs)
 
     if args.task == 4:
         class_names = np.unique(labels_train)
@@ -421,7 +427,8 @@ def main():
         figure = plot_confusion_matrix(cm, class_names=class_names)
         cm_image = plot_to_image(figure)
         with file_writer.as_default():
-            tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr), cm_image,step=epochs)
+            tf.summary.image("Confusion Matrix For Task "+str(args.task)+" "+str(args.attr),
+                             cm_image, step=epochs)
 
         class_names = np.unique(labels_train_2)
         predictions_2 = np.argmax(predictions[1], axis=1)
@@ -443,8 +450,8 @@ def main():
 
     # ---------------------- Save Model ---------------------- #
     # If we want to save every few epochs:
-    # https://stackoverflow.com/a/59069122/7043716
-    model.save(save_file_path)
+    if not args.plot_only:
+        model.save(save_file_path)
 
 
 if __name__ == '__main__':
