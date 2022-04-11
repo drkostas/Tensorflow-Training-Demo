@@ -1,7 +1,16 @@
 import traceback
 import argparse
-import numpy as np
-from typing import *
+from functools import partial
+from tensorflow.keras import Model, optimizers, losses, metrics
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, Flatten, Activation, \
+    Conv2D, MaxPooling2D, Lambda, Input, Conv2DTranspose, Reshape
+from tensorflow.keras.losses import mse
+from tensorflow.keras.callbacks import TensorBoard
+import keras_tuner as kt
+from tensorflow.keras import backend as K
+from sklearn import metrics
+from src import *
 
 
 def get_args() -> argparse.Namespace:
@@ -16,27 +25,97 @@ def get_args() -> argparse.Namespace:
         add_help=False)
     # Required Args
     required_args = parser.add_argument_group('Required Arguments')
+    required_args.add_argument('-t', '--task', type=int, required=True,
+                               choices=[1, 2, 3, 4, 5], help="The task/model to train on.")
+    required_args.add_argument('-a', '--attr', type=str, required=True,
+                               choices=['age', 'gender', 'race'], help="The attribute to train on.")
     # Optional args
     optional_args = parser.add_argument_group('Optional Arguments')
-    optional_args.add_argument('-d', '--dataset',
-                               help="The datasets to train the network on.", default='fairface')
+    optional_args.add_argument("--tuning", action='store_true', required=False,
+                               help="Whether to use the validation or training set for training.")
+    optional_args.set_defaults(feature=False)
+    optional_args.add_argument("--n-rows", default=-1, type=int, required=False,
+                               help="How many rows of the dataset to read.")
     optional_args.add_argument("-h", "--help", action="help", help="Show this help message and exit")
-
+    optional_args.add_argument('-o', '--attr2', type=str, required=False,
+                               choices=['age', 'gender', 'race'], help="The Second attribute to train on. Only for Task 4.")
     return parser.parse_args()
 
-
 def main():
-    """This is the main function of evaluate.py
+    """This is the main function of train.py
 
-    Example:
-        python evaluate.py --dataset example1
+        Run "tensorboard --logdir logs/fit" in terminal and open http://localhost:6006/
     """
-
-    # Initializing
     args = get_args()
-    # Load the configurations
+    # ---------------------- Hyperparameters ---------------------- #
 
-    # ------- Start of Code ------- #
+    if args.task == 1:
+        epochs = 60
+        saved_epoch = 60
+        saved_lr = 0.001
+        saved_batch_size = 128
+    elif args.task == 2:
+        epochs = 45
+        saved_epoch = 45
+        saved_lr = 0.001
+        saved_batch_size = 128
+    elif args.task == 3:
+        epochs = 20
+        saved_epoch = 8
+        saved_lr = 0.00032  # For task 3
+        saved_batch_size = 128
+    else:
+        epochs = 70
+        saved_epoch = 70
+        saved_lr = 0.00032
+        saved_batch_size = 32
+
+    # ---------------------- Initialize variables ---------------------- #
+    # Create a validation set suffix if needed
+    val_set_suffix = ''
+    if args.tuning:
+        val_set_suffix = '_valset'
+    model_name = f'model_{epochs}epochs_{saved_batch_size}batch-size_{saved_lr}lr'
+    if args.n_rows != -1:
+        model_name += f'_{args.n_rows}rows'
+    model_name += f'{val_set_suffix}.h5'
+    save_dir_path = os.path.join(model_path, f'{args.attr}_attr', f'task_{args.task}')
+    chkp_filename = os.path.join(save_dir_path, model_name[:-3] + f'_epoch{saved_epoch:02d}.ckpt')
+
+    # ---------------------- Load and prepare Dataset ---------------------- #
+    # Load the dataset
+    images_test, all_labels_test = load_dataset(dataset='val', n_rows=args.n_rows)
+    # Extract the labels for the desired task
+    labels_test = all_labels_test[args.attr].values
+
+    if args.task == 4:
+        labels_test_2 = all_labels_test[args.attr2].values
+    # Scale the data
+    min_max_dict = load_pickle(file_name=f'min_max_dict{val_set_suffix}.pkl',
+                               attr=args.attr, task=args.task)
+    min_max_dict = min_max_scale(images_test, max_v=min_max_dict['max'], min_v=min_max_dict['min'])
+    images_test = min_max_dict['data']
+    # One hot encode the labels
+    encoded_test_labels = one_hot_encoder(labels_test)
+
+    # ---------------------- Build the Model ---------------------- #
+    # Prepare images for testing
+    if args.task == 1:
+        # Flatten the images
+        images_test = np.array([image.flatten() for image in images_test])
+    elif args.task in (2, 3, 4):
+        images_test = images_test.reshape(*images_test.shape, 1)
+    elif args.task == 5:
+        images_test = images_test.reshape(*images_test.shape, 1)
+        encoded_test_labels = images_test
+
+    # Load Model
+    model = tf.keras.models.load_model(chkp_filename)
+    print(model.summary())
+
+    # ---------------------- Evaluation ---------------------- #
+    # Evaluate the model
+    model.evaluate(images_test, encoded_test_labels)
 
 
 if __name__ == '__main__':

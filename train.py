@@ -136,7 +136,7 @@ def build_model_task_4_conv(input_shape: Tuple[int, int], n_classes: Tuple[int, 
     c1 = Dense(n_classes[0], activation='softmax')(x)
     c2 = Dense(n_classes[1], activation='softmax')(x)
     # Select the optimizer and the loss function
-    model = Model(inputs,[c1,c2])
+    model = Model(inputs, [c1, c2])
     opt = optimizers.SGD(learning_rate=lr)
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=['accuracy'])
     return model
@@ -285,8 +285,6 @@ def main():
     labels_train = all_labels_src[args.attr].values
     labels_test = all_labels_test[args.attr].values
 
-    if(args.task==4):
-        labels_train_2 = all_labels_src[args.attr2].values
     if args.task == 4:
         labels_train_2 = all_labels_test[args.attr2].values
     # Scale the data
@@ -303,7 +301,6 @@ def main():
 
     if args.task == 4:
         encoded_train_labels_2 = one_hot_encoder(labels_train_2)
-    # ------- Start of Code ------- #
 
     # ---------------------- Build the Model ---------------------- #
     # Prepare images for training
@@ -380,6 +377,7 @@ def main():
               validation_split=validation_set_perc,
               callbacks=callbacks)
 
+    # ---------------------- Plots ---------------------- #
     file_writer = tf.summary.create_file_writer(log_folder)
     # Create Confusion Matrix
     if args.task in (1, 2, 3):
