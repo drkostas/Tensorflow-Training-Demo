@@ -227,16 +227,19 @@ def main():
     if args.task == 1:
         epochs = 60
         lr = 0.001
+        batch_size = 128
     elif args.task == 2:
         epochs = 45
-        lr = 0.001  # For tasks 1 and 2
+        lr = 0.001
+        batch_size = 128
     elif args.task == 3:
         epochs = 20
         lr = 0.00032  # For task 3
+        batch_size = 128
     else:
-        epochs = 20
-        lr = 0.001
-    batch_size = 128
+        epochs = 70
+        lr = 0.00032
+        batch_size = 32
     tuning_epochs = 20
     validation_set_perc = 0.2  # Percentage of the train dataset to use for validation
     max_conv_layers = 4  # Only for tuning
@@ -282,6 +285,8 @@ def main():
     labels_train = all_labels_src[args.attr].values
     labels_test = all_labels_test[args.attr].values
 
+    if(args.task==4):
+        labels_train_2 = all_labels_src[args.attr2].values
     if args.task == 4:
         labels_train_2 = all_labels_test[args.attr2].values
     # Scale the data
@@ -318,6 +323,7 @@ def main():
             encoded_train_labels = [encoded_test_labels,encoded_train_labels_2]
         else:
             n_classes = encoded_train_labels.shape[1]
+
         model = build_model(input_shape=images_train.shape[1:],
                             n_classes=n_classes,
                             lr=lr)
