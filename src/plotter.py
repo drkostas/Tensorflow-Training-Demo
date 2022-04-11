@@ -1,5 +1,15 @@
-# Function that creates confusion matrix plot
+import matplotlib.pyplot as plt
+import io
+import tensorflow as tf
 
-# record the loss value for each of the epochs and create an epoch-loss plot
-# and an accuracy-loss plot for both the training and validation set.
 
+def plot_to_image(figure):
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    plt.close(figure)
+    buf.seek(0)
+
+    face = tf.image.decode_png(buf.getvalue(), channels=4)
+    face = tf.expand_dims(face, 0)
+
+    return face
