@@ -1,7 +1,6 @@
 import traceback
 import argparse
 from functools import partial
-import itertools
 from tensorflow.keras import Model, optimizers, losses, metrics
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Flatten, Activation, \
@@ -41,28 +40,6 @@ def get_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-
-def plot_confusion_matrix(cm, class_names):
-    figure = plt.figure(figsize=(8, 8))
-    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Accent)
-    plt.title("Confusion matrix")
-    plt.colorbar()
-    tick_marks = np.arange(len(class_names))
-    plt.xticks(tick_marks, class_names, rotation=45)
-    plt.yticks(tick_marks, class_names)
-
-    cm = np.around(cm.astype('float') / cm.sum(axis=1)[:, np.newaxis], decimals=2)
-    threshold = cm.max() / 2.
-
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        color = "white" if cm[i, j] > threshold else "black"
-        plt.text(j, i, cm[i, j], horizontalalignment="center", color=color)
-
-    plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-
-    return figure
 
 def sampling(args):
     """Reparameterization trick by sampling from an isotropic unit Gaussian.
@@ -117,7 +94,7 @@ def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: fl
 
 
 def build_model_task_3_conv(input_shape: Tuple[int, int], n_classes: int,
-                           lr: float = 0.00032) -> Model:
+                            lr: float = 0.00032) -> Model:
     """ Build a custom conv neural network"""
     model = Sequential()
     # Add the layers
@@ -146,7 +123,6 @@ def build_model_task_3_conv(input_shape: Tuple[int, int], n_classes: int,
 def build_model_task_5_auto(input_shape: Tuple[int, int],
                             n_classes: int, lr: float = 0.001) -> Tuple[Model, Model]:
     """ Build an Auto Encoder"""
-
     # Build Encoder
     inputs = Input(shape=input_shape, name='encoder_input')
     cov_1 = Conv2D(filters=20, kernel_size=5, activation='relu')(inputs)
@@ -170,7 +146,8 @@ def build_model_task_5_auto(input_shape: Tuple[int, int],
     covT_4 = Conv2DTranspose(filters=1, kernel_size=5, activation='relu')(covT_3)
     decoder = Model(latent_inputs, [x_out, resh, covT_1, covT_2, covT_3, covT_4],
                     name='decoder_output')
-    decoder.compile(optimizer='adam')
+    decoder.compile(optimizer='adam')  # TODO: it gives the following error:
+    # ValueError: The model cannot be compiled because it has no loss to optimize.
     outputs = decoder(encoder(inputs)[6])
     model = Model(inputs, outputs, name='vae_mlp')
 
@@ -184,6 +161,7 @@ def build_model_task_5_auto(input_shape: Tuple[int, int],
     model.add_loss(vae_loss)
     model.compile(optimizer='adam')
     return model, decoder
+
 
 def tune_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
                            lr: float = 0.001, max_conv_layers: int = 3) -> Model:
@@ -220,7 +198,7 @@ def main():
     # ---------------------- Hyperparameters ---------------------- #
     epochs = 1
     batch_size = 32
-    tuning_image_num = 5000  # TODO: I'm already doing that in the data loader (use the --n-rows option and pass args.n_rows)
+    tuning_image_num = 5000  # TODO: I'm already doing that in the data loader (you could use the --n-rows option and pass args.n_rows)
     tuning_epochs = 20
     # lr = 0.001  # For tasks 1 and 2
     lr = 0.00032  # For task 3
@@ -292,10 +270,8 @@ def main():
         print(model.summary())
     else:
         print("####### Tuning #######")
-        tune_images_train = images_train[:tuning_image_num]
-        tune_train_labels = encoded_train_labels[:tuning_image_num]
-        build_model = partial(build_model, input_shape=tune_images_train.shape[1:],
-                              n_classes=tune_train_labels.shape[1],
+        build_model = partial(build_model, input_shape=images_train.shape[1:],
+                              n_classes=encoded_train_labels.shape[1],
                               lr=lr, max_conv_layers=max_conv_layers)
         model = kt.Hyperband(build_model,
                              objective='val_accuracy',
@@ -306,8 +282,8 @@ def main():
                              project_name=f'tuning_{epochs}epochs_{batch_size}batchsize_{lr}lr_max_conv_layers{max_conv_layers}')
         stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
         callbacks.append(stop_early)
-        model.search(tune_images_train,
-                     tune_train_labels,
+        model.search(images_train,
+                     encoded_train_labels,
                      epochs=tuning_epochs,
                      batch_size=batch_size,
                      validation_split=validation_set_perc,
@@ -337,7 +313,7 @@ def main():
 
     file_writer = tf.summary.create_file_writer(log_folder)
     # Create Confusion Matrix
-    if(args.task in [1,2,3,4]):
+    if args.task in (1, 2, 3, 4):
         class_names = np.unique(labels_train)
         predictions = model.predict(images_train)
         predictions = np.argmax(predictions, axis=1)
@@ -347,36 +323,13 @@ def main():
         with file_writer.as_default():
             tf.summary.image("Confusion Matrix", cm_image,step=epochs)
 
-
-
-    # Creates Images from the Auto Encoded
-    if(args.task==5):
-        figure = plt.figure(figsize=(12, 8))
-
-        # Figure For Image input
-        predicted = model.predict(images_train[:5])
-        for i in range(5):
-            image = images_train[i].reshape(32, 32)
-            plt.subplot(2, 5, i + 1)
-            plt.grid(False)
-            plt.imshow(image)
-            plt.subplot(2, 5, i + 6)
-            plt.grid(False)
-            plt.imshow(predicted[5][i])
+    # Create Images from the Auto Encoded
+    if args.task == 5:
+        figure = visualize_encoder_results(model, images_train)
         with file_writer.as_default():
             tf.summary.image("Image->Image", plot_to_image(figure), step=0)
-
         # Figure for Random Input
-
-        figure = plt.figure(figsize=(12, 8))
-        randomInput = np.random.rand(10, 15, 1)
-        randPredict = decoder.predict(randomInput)
-        for i in range(10):
-            image = images_train[i].reshape(32, 32)
-            plt.subplot(2, 5, i + 1)
-            plt.grid(False)
-            plt.imshow(randPredict[5][i])
-
+        figure = visualize_random_input(decoder)
         with file_writer.as_default():
             tf.summary.image("Random->Image", plot_to_image(figure), step=0)
 
