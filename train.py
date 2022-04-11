@@ -92,8 +92,8 @@ def build_model_task_2_conv(input_shape: Tuple[int, int], n_classes: int, lr: fl
     return model
 
 
-def build_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
-                           lr: float = 0.001, max_conv_layers: int = 3) -> Model:
+def build_model_task_3_conv(input_shape: Tuple[int, int], n_classes: int,
+                           lr: float = 0.00032) -> Model:
     """ Build a custom conv neural network"""
     model = Sequential()
     # Add the layers
@@ -113,7 +113,7 @@ def build_model_task_3_conv(hp, input_shape: Tuple[int, int], n_classes: int,
     model.add(Dense(175, activation='relu'))
     model.add(Dense(n_classes, activation='softmax'))
     # Select the optimizer and the loss function
-    opt = optimizers.Adam(learning_rate=0.00032)
+    opt = optimizers.Adam(learning_rate=lr)
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(),
                   optimizer=opt, metrics=['accuracy', 'mse'])
     return model
@@ -196,9 +196,10 @@ def main():
     # ---------------------- Hyperparameters ---------------------- #
     epochs = 1
     batch_size = 32
-    tuning_image_num = 5000
+    tuning_image_num = 5000  # TODO: I'm already doing that in the data loader (use the --n-rows option and pass args.n_rows)
     tuning_epochs = 20
-    lr = 0.001
+    # lr = 0.001  # For tasks 1 and 2
+    lr = 0.00032  # For task 3
     validation_set_perc = 0.01  # Percentage of the train dataset to use for validation
     max_conv_layers = 4  # Only for tuning
 
@@ -221,8 +222,7 @@ def main():
         if args.tuning:
             build_model = tune_model_task_3_conv
         else:
-            pass
-            # build_model = build_model_task_3_conv
+            build_model = build_model_task_3_conv
     elif args.task == 5:
         build_model = build_model_task_5_auto
     else:
