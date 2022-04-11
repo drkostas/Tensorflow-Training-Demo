@@ -4,6 +4,7 @@ import io
 import matplotlib.pyplot as plt
 from functools import partial
 import tensorflow as tf
+import itertools
 from tensorflow.keras import Model, optimizers, losses, metrics
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Flatten, Activation, \
@@ -12,6 +13,7 @@ from tensorflow.keras.losses import mse
 from tensorflow.keras.callbacks import TensorBoard
 import keras_tuner as kt
 from tensorflow.keras import backend as K
+from sklearn import metrics
 from src import *
 
 
@@ -53,6 +55,28 @@ def plot_to_image(figure):
 
     return face
 
+
+def plot_confusion_matrix(cm, class_names):
+    figure = plt.figure(figsize=(8, 8))
+    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Accent)
+    plt.title("Confusion matrix")
+    plt.colorbar()
+    tick_marks = np.arange(len(class_names))
+    plt.xticks(tick_marks, class_names, rotation=45)
+    plt.yticks(tick_marks, class_names)
+
+    cm = np.around(cm.astype('float') / cm.sum(axis=1)[:, np.newaxis], decimals=2)
+    threshold = cm.max() / 2.
+
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        color = "white" if cm[i, j] > threshold else "black"
+        plt.text(j, i, cm[i, j], horizontalalignment="center", color=color)
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+
+    return figure
 
 def sampling(args):
     """Reparameterization trick by sampling from an isotropic unit Gaussian.
@@ -309,12 +333,25 @@ def main():
             validation_split=validation_set_perc,
             callbacks=callbacks)
 
+    file_writer = tf.summary.create_file_writer(log_folder)
+    # Create Confusion Matrix
+    if(args.task in [1,2,3,4]):
+        class_names = np.unique(labels_train)
+        predictions = model.predict(images_train)
+        predictions = np.argmax(predictions, axis=1)
+        cm = metrics.confusion_matrix(np.argmax(encoded_train_labels, axis=1), predictions)
+        figure = plot_confusion_matrix(cm, class_names=class_names)
+        cm_image = plot_to_image(figure)
+        with file_writer.as_default():
+            tf.summary.image("Confusion Matrix", cm_image,step=epochs)
 
 
+
+    # Creates Images from the Auto Encoded
     if(args.task==5):
-        file_writer = tf.summary.create_file_writer(log_folder)
         figure = plt.figure(figsize=(12, 8))
 
+        # Figure For Image input
         predicted = model.predict(images_train[:5])
         for i in range(5):
             image = images_train[i].reshape(32,32)
@@ -327,6 +364,7 @@ def main():
         with file_writer.as_default():
             tf.summary.image("Image->Image", plot_to_image(figure), step=0)
 
+        # Figure for Random Input
 
         figure = plt.figure(figsize=(12, 8))
         randomInput = np.random.rand(10,15,1)
