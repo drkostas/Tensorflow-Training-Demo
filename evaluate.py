@@ -36,7 +36,8 @@ def get_args() -> argparse.Namespace:
 def main():
     """This is the main function of train.py
 
-        Run "tensorboard --logdir logs/fit" in terminal and open http://localhost:6006/
+        Run "tensorboard --logdir logs/test" in terminal and open http://localhost:6006/
+        (or http://localhost:6007/ if you are already running tensorboard)
     """
     args = get_args()
     # ---------------------- Hyperparameters ---------------------- #
