@@ -2,6 +2,7 @@ import traceback
 import argparse
 from functools import partial
 from tensorflow.keras import Model, optimizers, losses, metrics
+from tensorflow.keras import backend as K
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Dense, Flatten, Activation, \
     Conv2D, MaxPooling2D, Lambda, Input, Conv2DTranspose, Reshape
@@ -232,7 +233,7 @@ def main():
     """
     args = get_args()
     # ---------------------- Hyperparameters ---------------------- #
-
+    chkp_new_lr = None
     if args.task == 1:
         epochs = 60
         lr = 0.001
@@ -249,7 +250,11 @@ def main():
         epochs = 20
         lr = 0.00032
         batch_size = 128
-        chkp_epoch_to_load = 8
+        chkp_new_lr = 0.000032
+        if args.attr == 'age':
+            chkp_epoch_to_load = 7
+        else:
+            chkp_epoch_to_load = 12
         chkp_additional_epochs = 30
     else:
         epochs = 70
@@ -323,7 +328,7 @@ def main():
     if args.task == 4:
         encoded_train_labels_2 = one_hot_encoder(labels_train_2)
 
-    # ---------------------- Build the Model ---------------------- #
+    # ---------------------- Build/Load the Model ---------------------- #
     print("####### Building/Loading the Model #######")
     # Prepare images for training
     if args.task == 1:
@@ -344,6 +349,9 @@ def main():
             n_classes = encoded_train_labels.shape[1]
         if args.load_checkpoint:
             model = tf.keras.models.load_model(chkp_filename)
+            if chkp_new_lr is not None:
+                K.set_value(model.optimizer.learning_rate, chkp_new_lr)
+                print("#### CHANGING LEARNING RATE TO:", chkp_new_lr, " ####")
         else:
             model = build_model(input_shape=images_train.shape[1:],
                                 n_classes=n_classes,

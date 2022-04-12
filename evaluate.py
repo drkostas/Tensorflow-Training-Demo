@@ -39,7 +39,6 @@ def main():
     """
     args = get_args()
     # ---------------------- Hyperparameters ---------------------- #
-
     if args.task == 1:
         epochs = 60
         saved_epoch = 60
@@ -76,13 +75,10 @@ def main():
         save_filename = os.path.join(save_dir_path, model_name)
     else:
         save_filename = os.path.join(save_dir_path, model_name[:-3] + f'_epoch{saved_epoch:02d}.ckpt')
-
-
-    log_folder = "logs/fit/t-" + str(args.task) + \
+    log_folder = "logs/test/t-" + str(args.task) + \
                  "/a-" + args.attr + \
                  "/b-" + str(saved_batch_size) + \
                  "/lr-" + str(saved_lr)
-
 
     # ---------------------- Load and prepare Dataset ---------------------- #
     # Load the dataset
@@ -114,27 +110,15 @@ def main():
     elif args.task == 5:
         images_test = images_test.reshape(*images_test.shape, 1)
         encoded_test_labels = images_test
-
-
-
-
     # Load Model
     model = tf.keras.models.load_model(save_filename)
     print(model.summary())
-
-
 
     # ---------------------- Evaluation ---------------------- #
     # Evaluate the model
     model.evaluate(images_test, encoded_test_labels)
     model.predict(images_test)
-
-
-
-
     file_writer = tf.summary.create_file_writer(log_folder)
-
-
     if args.task in (1, 2, 3):
         class_names = np.unique(labels_test)
         predictions = model.predict(images_test)
