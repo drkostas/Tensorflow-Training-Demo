@@ -30,11 +30,11 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites <a name = "prerequisites"></a>
 
-You need to have a machine with Python > 3.6 and any Bash based shell (e.g. zsh) installed.
+You need to have a machine with Python = 3.10 and any Bash based shell (e.g. zsh) installed.
 
 ```ShellSession
-$ python3.7 -V
-Python 3.7
+$ python3.10 -V
+Python 3.10
 
 $ echo $SHELL
 /usr/bin/zsh
@@ -60,7 +60,7 @@ For manual installation, you can create a virtual environment
 and install the requirements by executing the following commands:
 
 ```ShellSession
-$ conda create -n cosc525_project3 -y python=3.7
+$ conda create -n cosc525_project3 -y python=3.10
 $ conda activate cosc525_project3
 $ conda install --file requirements.txt -y
 ```
@@ -80,22 +80,14 @@ $ which python
 
 #### main.py <a name = "src_main"></a>
 
-Now, in order to run the code you can call the [main.py](main.py)
-directly.
+In order to run the code use the --help option for instructions:
 
 ```ShellSession
-$ python main.py -h
-usage: main.py -d DATASET [-h]
+    $ python train.py --help
+```
 
-Project 3 for the Deep Learning class (COSC 525). Involves the development 
-of a Convolutional Neural Network.
-
-Required Arguments:
-  -d DATASET, --dataset DATASET
-                        The datasets to train the network on. Options: [example1, example2, example3]
-
-Optional Arguments:
-  -h, --help            Show this help message and exit
+```ShellSession
+    $ python evaluate.py --help
 ```
 
 ## License <a name = "license"></a>
