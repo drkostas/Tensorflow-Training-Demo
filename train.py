@@ -251,10 +251,7 @@ def main():
         lr = 0.00032
         batch_size = 128
         chkp_new_lr = 0.000032
-        if args.attr == 'age':
-            chkp_epoch_to_load = 7
-        else:
-            chkp_epoch_to_load = 12
+        chkp_epoch_to_load = 12
         chkp_additional_epochs = 30
     else:
         epochs = 70
@@ -276,7 +273,7 @@ def main():
     # Create a validation set suffix if needed
     val_set_suffix = ''
     if args.tuning:
-        val_set_suffix = '_valset'
+        val_set_suffix = '_tuning'
     # Save model path
     model_name = f'model_{epochs}epochs_{batch_size}batch-size_{lr}lr'
     if args.n_rows != -1:

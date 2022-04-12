@@ -148,3 +148,4 @@ dmypy.json
 *.DS_Store
 logs/*
 /project1_empty.py
+/bck/
