@@ -42,7 +42,7 @@ def main():
     # ---------------------- Hyperparameters ---------------------- #
     if args.task == 1:
         epochs = 60
-        saved_epoch = 60
+        saved_epoch = 61
         saved_lr = 0.001
         saved_batch_size = 128
     elif args.task == 2:
@@ -52,7 +52,7 @@ def main():
         saved_batch_size = 128
     elif args.task == 3:
         epochs = 20
-        saved_epoch = 8
+        saved_epoch = 9
         saved_lr = 0.00032  # For task 3
         saved_batch_size = 128
     else:
@@ -72,7 +72,7 @@ def main():
         model_name += f'_{args.n_rows}rows'
     model_name += f'{val_set_suffix}.h5'
     save_dir_path = os.path.join(model_path, f'{args.attr}_attr', f'task_{args.task}')
-    if(args.task == 4):
+    if args.task == 4:
         save_filename = os.path.join(save_dir_path, model_name)
     else:
         save_filename = os.path.join(save_dir_path, model_name[:-3] + f'_epoch{saved_epoch:02d}.ckpt')
@@ -105,9 +105,9 @@ def main():
         images_test = np.array([image.flatten() for image in images_test])
     elif args.task in (2, 3):
         images_test = images_test.reshape(*images_test.shape, 1)
-    elif args.task ==4:
+    elif args.task == 4:
         images_test = images_test.reshape(*images_test.shape, 1)
-        encoded_test_labels = [encoded_test_labels,encoded_test_labels_2]
+        encoded_test_labels = [encoded_test_labels, encoded_test_labels_2]
     elif args.task == 5:
         images_test = images_test.reshape(*images_test.shape, 1)
         encoded_test_labels = images_test
@@ -128,7 +128,8 @@ def main():
         figure = plot_confusion_matrix(cm, class_names=class_names)
         cm_image = plot_to_image(figure)
         with file_writer.as_default():
-            tf.summary.image("Evaluation Confusion Matrix For Task "+str(args.task)+" "+str(args.attr), cm_image,step=epochs)
+            tf.summary.image("Evaluation Confusion Matrix For Task "+str(args.task)+" "+str(args.attr),
+                             cm_image, step=epochs)
 
     if args.task == 4:
         class_names = np.unique(labels_test)
@@ -138,7 +139,8 @@ def main():
         figure = plot_confusion_matrix(cm, class_names=class_names)
         cm_image = plot_to_image(figure)
         with file_writer.as_default():
-            tf.summary.image("Evaluation Confusion Matrix For Task "+str(args.task)+" "+str(args.attr), cm_image,step=epochs)
+            tf.summary.image("Evaluation Confusion Matrix For Task "+str(args.task)+" "+str(args.attr),
+                             cm_image, step=epochs)
 
         class_names = np.unique(labels_test_2)
         predictions_2 = np.argmax(predictions[1], axis=1)
