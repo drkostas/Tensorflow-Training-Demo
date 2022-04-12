@@ -307,7 +307,7 @@ def main():
     labels_test = all_labels_test[args.attr].values
 
     if args.task == 4:
-        labels_train_2 = all_labels_test[args.attr2].values
+        labels_train_2 = all_labels_src[args.attr2].values
     # Scale the data
     min_max_dict = min_max_scale(images_train)
     images_train, train_min, train_max = \
@@ -339,7 +339,7 @@ def main():
     if not args.tuning:
         if args.task == 4:
             n_classes = (encoded_train_labels.shape[1], encoded_train_labels_2.shape[1])
-            encoded_train_labels = [encoded_test_labels,encoded_train_labels_2]
+            encoded_train_labels = [encoded_train_labels,encoded_train_labels_2]
         else:
             n_classes = encoded_train_labels.shape[1]
         if args.load_checkpoint:
