@@ -1,0 +1,14 @@
+kind: banner
+name: Tensorflow-Training-Demo
+line: Trains and compares several neural networks with TensorFlow for a course project.
+accent: amber
+diagram:
+- doc:
+    label: data
+- arrow
+- box:
+    text: networks
+- arrow
+- chart:
+    label: accuracy
+    accent: true
